@@ -18,7 +18,8 @@ from hbt.production.tau import tau_weights, trigger_weights
 from hbt.production.invariant_mass import (invariant_mass_jets, invariant_mass_tau,
     invariant_mass_bjets, invariant_mass_HH, kinematic_vars_taus, kinematic_vars_jets,
     kinematic_vars_bjets, jet_information, bjet_information, tau_information,
-    kinematic_vars_colljets, dr_inv_mass_jets, d_eta_inv_mass_jets, energy_correlation)
+    kinematic_vars_colljets, dr_inv_mass_jets, d_eta_inv_mass_jets, energy_correlation,
+    hardest_jet_pair_pt)
 
 
 ak = maybe_import("awkward")
@@ -32,7 +33,7 @@ ak = maybe_import("awkward")
         invariant_mass_tau, invariant_mass_bjets, invariant_mass_HH, kinematic_vars_taus,
         kinematic_vars_jets, kinematic_vars_bjets, jet_information, bjet_information,
         tau_information, kinematic_vars_colljets, dr_inv_mass_jets, d_eta_inv_mass_jets,
-        energy_correlation,
+        energy_correlation, hardest_jet_pair_pt,
     },
     produces={
         category_ids, features, normalization_weights, normalized_pdf_weight,
@@ -41,7 +42,7 @@ ak = maybe_import("awkward")
         invariant_mass_tau, invariant_mass_bjets, invariant_mass_HH, kinematic_vars_taus,
         kinematic_vars_jets, kinematic_vars_bjets, jet_information, bjet_information,
         tau_information, kinematic_vars_colljets, dr_inv_mass_jets, d_eta_inv_mass_jets,
-        energy_correlation,
+        energy_correlation, hardest_jet_pair_pt,
     },
 )
 def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -71,6 +72,8 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = self[d_eta_inv_mass_jets](events, **kwargs)
 
     events = self[energy_correlation](events, **kwargs)
+
+    events = self[hardest_jet_pair_pt](events, **kwargs)
 
     # events = self[kinematic_vars_bjets](events, **kwargs)
 

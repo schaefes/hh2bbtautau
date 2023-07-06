@@ -120,6 +120,26 @@ def invariant_mass_HH(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     return events
 
 
+@producer(
+    uses={
+        "CollJet.pt", "CollJet.nJet", "CollJet.eta", "CollJet.phi", "CollJet.mass",
+        attach_coffea_behavior,
+    },
+    produces={
+        "hardest_jet_pair_pt",
+    },
+)
+def hardest_jet_pair_pt(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    # category ids
+    # invariant mass of two hardest jets
+    events = self[attach_coffea_behavior](events, collections=["CollJet"], **kwargs)
+    events = set_ak_column(events, "Jet", ak.pad_none(events.CollJet, 2))
+    events = set_ak_column(events, "hardest_jet_pair_pt", (events.CollJet[:, 0] + events.CollJet[:, 1]).pt)
+    events = set_ak_column(events, "hardest_jet_pair_pt", ak.fill_none(events.hardest_jet_pair_pt, EMPTY_FLOAT))
+
+    return events
+
+
 # functions for usage in .metric_table
 def delta_eta(obj1, obj2):
     obj_eta = abs(obj1.eta - obj2.eta)
@@ -131,6 +151,7 @@ def inv_mass(obj1, obj2):
     obj_mass = (obj1 + obj2).mass
 
     return obj_mass
+
 
 def pt_product(obj1, obj2):
     obj_product = abs(obj1.pt * obj2.pt)
@@ -331,45 +352,43 @@ def kinematic_vars_colljets(self: Producer, events: ak.Array, **kwargs) -> ak.Ar
 
     jets_pt = ak.pad_none(events.CollJet.pt, max(n_jets))
     jets_pt = ak.to_regular(jets_pt, axis=1)
-    jets_pt = ak.fill_none(jets_pt, EMPTY_FLOAT)
+    jets_pt = ak.fill_none(jets_pt, 0)
     events = set_ak_column_f32(events, "Colljets_pt", jets_pt)
 
     jets_eta = ak.pad_none(events.CollJet.eta, max(n_jets))
     jets_eta = ak.to_regular(jets_eta, axis=1)
-    jets_eta = ak.fill_none(jets_eta, EMPTY_FLOAT)
+    jets_eta = ak.fill_none(jets_eta, 0)
     events = set_ak_column_f32(events, "Colljets_eta", jets_eta)
 
     jets_phi = ak.pad_none(events.CollJet.phi, max(n_jets))
     jets_phi = ak.to_regular(jets_phi, axis=1)
-    jets_phi = ak.fill_none(jets_phi, EMPTY_FLOAT)
+    jets_phi = ak.fill_none(jets_phi, 0)
     events = set_ak_column_f32(events, "Colljets_phi", jets_phi)
 
     jets_mass = ak.pad_none(events.CollJet.mass, max(n_jets))
     jets_mass = ak.to_regular(jets_mass, axis=1)
-    jets_mass = ak.fill_none(jets_mass, EMPTY_FLOAT)
+    jets_mass = ak.fill_none(jets_mass, 0)
     events = set_ak_column_f32(events, "Colljets_mass", jets_mass)
 
     jets_e = ak.pad_none(events.CollJet.E, max(n_jets))
     jets_e = ak.to_regular(jets_e, axis=1)
-    jets_e = ak.fill_none(jets_e, EMPTY_FLOAT)
+    jets_e = ak.fill_none(jets_e, 0)
     events = set_ak_column_f32(events, "Colljets_e", jets_e)
 
     jets_btag = ak.pad_none(events.CollJet.btagDeepFlavB, max(n_jets))
     jets_btag = ak.to_regular(jets_btag, axis=1)
-    jets_btag = ak.fill_none(jets_btag, EMPTY_FLOAT)
+    jets_btag = ak.fill_none(jets_btag, 0)
     events = set_ak_column_f32(events, "Colljets_btag", jets_btag)
 
     jets_hadFlav = ak.pad_none(events.CollJet.hadronFlavour, max(n_jets))
     jets_hadFlav = ak.to_regular(jets_hadFlav, axis=1)
-    jets_hadFlav = ak.fill_none(jets_hadFlav, EMPTY_FLOAT)
+    jets_hadFlav = ak.fill_none(jets_hadFlav, 0)
     events = set_ak_column_f32(events, "Colljets_hadFlav", jets_hadFlav)
 
     ones_count_ds = ak.ones_like(events.CollJet.pt)
     ones_count_ds = ak.pad_none(ones_count_ds, max(n_jets))
     ones_count_ds = ak.to_regular(ones_count_ds, axis=1)
-    ones_count_ds = ak.fill_none(ones_count_ds, EMPTY_FLOAT)
-    print('invariant mass')
-    from IPython import embed; embed()
+    ones_count_ds = ak.fill_none(ones_count_ds, 0)
     events = set_ak_column_f32(events, "ones_count_ds", ones_count_ds)
 
     return events

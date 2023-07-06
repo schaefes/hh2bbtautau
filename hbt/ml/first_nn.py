@@ -405,11 +405,11 @@ class SimpleDNN(MLModel):
                     if DNN_inputs["inputs"].shape[1] != events.shape[1]:
                         if DNN_inputs["inputs"].shape[1] > events.shape[1]:
                             n_extra_columns = DNN_inputs["inputs"].shape[1] - events.shape[1]
-                            extra_columns = np.full((events.shape[0], n_extra_columns), EMPTY_FLOAT)
+                            extra_columns = np.full((events.shape[0], n_extra_columns), 0)
                             events = np.concatenate((events, extra_columns), axis=1)
                         else:
                             n_extra_columns = events.shape[1] - DNN_inputs["inputs"].shape[1]
-                            extra_columns = np.full((DNN_inputs["inputs"].shape[0], n_extra_columns), EMPTY_FLOAT)
+                            extra_columns = np.full((DNN_inputs["inputs"].shape[0], n_extra_columns), 0)
                             DNN_inputs["inputs"] = np.concatenate((DNN_inputs["inputs"], extra_columns), axis=1)
                     DNN_inputs["weights"] = np.concatenate([DNN_inputs["weights"], weights])
                     DNN_inputs["inputs"] = np.concatenate([DNN_inputs["inputs"], events])
