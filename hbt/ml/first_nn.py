@@ -62,7 +62,7 @@ def reshape_raw_inputs2(events):
 
 
 # returns a dict containg the normed and correctly shaped inputs1 and 2
-def reshape_norm_inputs(events_dict, n_features, norm_features, input_features, n_output_nodes, dummy):
+def reshape_norm_inputs(events_dict, n_features, norm_features, input_features, n_output_nodes, dummy, baseline_jets):
     # reshape train['inputs'] for DeepSets: [#events, #jets, -1] and apply standardization (z-score)
     # calculate mean and std for normalization
     events_shaped = events_dict["inputs"].reshape((-1, n_features))
@@ -79,25 +79,27 @@ def reshape_norm_inputs(events_dict, n_features, norm_features, input_features, 
         mean_feature1[i] = np.mean(events_shaped[:, i][mask_empty_floats])
         std_feature1[i] = np.std(events_shaped[:, i][mask_empty_floats])
 
+    std_feature1 = std_feature1 / 3
     mean_feature1[delete_standardization1] = 0
     std_feature1[delete_standardization1] = 1
 
     jets_collection = []
+    jets_flat_collection = []
     for i in range(events_dict['inputs'].shape[0]):
         arr_events = events_dict['inputs'][i]
-        indices = np.where(arr_events != EMPTY_FLOAT)
-        jets_flat = arr_events[indices]
-        try:
-            jets_shaped = jets_flat.reshape((-1, n_features))
-        except:
-            print('---?---')
-            from IPython import embed; embed()
-        jets_normalized = (jets_shaped - mean_feature1) / std_feature1
-        jets_normalized = jets_normalized.flatten()
-        jets_shaped = jets_normalized.reshape((1, -1, n_features))
+        arr_shaped = np.reshape(arr_events, (-1, n_features))
+        arr_mask = np.ma.masked_where(arr_shaped != EMPTY_FLOAT, arr_shaped).mask[:, 0]
+        arr_normalized = (arr_shaped[arr_mask] - mean_feature1) / std_feature1
+        arr_shaped[arr_mask] = arr_normalized
+        arr_shaped = np.where(arr_shaped == EMPTY_FLOAT, 0, arr_shaped)
+        baseline_model_inp = arr_shaped[:4, :].flatten()
+        jets_flat_collection.append(baseline_model_inp)
+        jets_shaped = np.reshape(arr_shaped.flatten(), (1, -1, n_features))
         jets_collection.append(jets_shaped)
-    stacked_events = tf.ragged.stack(jets_collection)
+    stacked_events = tf.convert_to_tensor(jets_collection)
+    flat_jets = tf.convert_to_tensor(jets_flat_collection)
     events_dict['inputs'] = tf.squeeze(stacked_events, axis=1)
+    events_dict['input_jets_baseline'] = flat_jets
 
     # normalization of inputs2
     mean_feature2 = np.zeros(len(input_features[1]))
@@ -159,6 +161,7 @@ class SimpleDNN(MLModel):
             empty_overwrite: str | None = None,
             quantity_weighting: bool | None = None,
             jet_num_cut: int | None = None,
+            baseline_jets: int | None = None,
             **kwargs,
     ):
         """
@@ -190,6 +193,7 @@ class SimpleDNN(MLModel):
         self.empty_overwrite = empty_overwrite or self.empty_overwrite
         self.quantity_weighting = quantity_weighting or self.quantity_weighting
         self.jet_num_cut = jet_num_cut or self.jet_num_cut
+        self.baseline_jets = baseline_jets or self.baseline_jets
         # DNN model parameters
         """
         self.layers = [512, 512, 512]
@@ -497,8 +501,8 @@ class SimpleDNN(MLModel):
             validation[k] = DNN_inputs[k][:N_validation_events]
             train[k] = DNN_inputs[k][N_validation_events:]
         # reshape and normalize inputs
-        train = reshape_norm_inputs(train, self.n_features, self.norm_features, self.input_features, self.n_output_nodes, self.empty_overwrite)
-        validation = reshape_norm_inputs(validation, self.n_features, self.norm_features, self.input_features, self.n_output_nodes, self.empty_overwrite)
+        train = reshape_norm_inputs(train, self.n_features, self.norm_features, self.input_features, self.n_output_nodes, self.empty_overwrite, self.baseline_jets)
+        validation = reshape_norm_inputs(validation, self.n_features, self.norm_features, self.input_features, self.n_output_nodes, self.empty_overwrite, self.baseline_jets)
 
         return train, validation
 
@@ -568,13 +572,12 @@ class SimpleDNN(MLModel):
         input: Any,
         output: law.LocalDirectoryTarget,
     ) -> ak.Array:
-        # np.random.seed(1337)  # for reproducibility
         # set seed for shuffeling for reproducebility
         np.random.seed(1337)
         tf.random.set_seed(1337)
 
         # Load Custom Model
-        from hbt.ml.DNN_automated import CombinedDeepSetNetwork
+        from hbt.ml.DNN_automated import CombinedDeepSetNetwork, BaseLineFF
 
         physical_devices = tf.config.list_physical_devices("GPU")
         try:
@@ -616,7 +619,8 @@ class SimpleDNN(MLModel):
         feedforward_config = {'nodes': self.nodes_ff, 'activations': self.activation_func_ff,
             'n_classes': self.n_output_nodes}
 
-        model = CombinedDeepSetNetwork(deepset_config, feedforward_config)
+        # model = CombinedDeepSetNetwork(deepset_config, feedforward_config)
+        model = BaseLineFF(feedforward_config)
 
         activation_settings = {
             "elu": ("ELU", "he_uniform", "Dropout"),
@@ -673,14 +677,13 @@ class SimpleDNN(MLModel):
         #         (validation["inputs"], validation["target"]),
         #     ).batch(self.batchsize)
 
-        # tf_train = tf.data.Dataset.from_tensor_slices((train["inputs"], train["target"]))
-        # tf_validate = tf.data.Dataset.from_tensor_slices((validation["inputs"], validation["target"]))
-        tf_train = [[train['inputs'], train['inputs2']], train['target']]
-        tf_validation = [[validation['inputs'], validation['inputs2']], validation['target']]
+        # train and validation for deep sets model
+        # tf_train = [[train['inputs'], train['inputs2']], train['target']]
+        # tf_validation = [[validation['inputs'], validation['inputs2']], validation['target']]
 
-        # for no deep sets
-        # tf_train = [tf.squeeze(train['inputs2'], axis=1), tf.squeeze(train['target'], axis=1)]
-        # tf_validation = [tf.squeeze(validation['inputs2'], axis=1), tf.squeeze(validation['target'], axis=1)]
+        # train and validation for the basline model without deep sets
+        tf_train = [[train['input_jets_baseline'], train['inputs2']], train['target']]
+        tf_validation = [[validation['input_jets_baseline'], validation['inputs2']], validation['target']]
 
         fit_kwargs = {
             "epochs": self.epochs,

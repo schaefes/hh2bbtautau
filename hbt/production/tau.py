@@ -7,7 +7,7 @@ Tau scale factor production.
 import functools
 
 from columnflow.production import Producer, producer
-from columnflow.util import maybe_import
+from columnflow.util import maybe_import, InsertableDict
 from columnflow.columnar_util import set_ak_column, flat_np_view, layout_ak_array
 
 
@@ -23,7 +23,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         # custom columns created upstream, probably by a selector
         "single_triggered", "cross_triggered",
         # nano columns
-        "nTau", "Tau.pt", "Tau.eta", "Tau.genPartFlav", "Tau.decayMode",
+        "Tau.pt", "Tau.eta", "Tau.genPartFlav", "Tau.decayMode",
     },
     produces={
         "tau_weight",
@@ -32,7 +32,7 @@ set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
         for direction in ["up", "down"]
         for unc in [
             "jet_dm0", "jet_dm1", "jet_dm10", "e_barrel", "e_endcap",
-            "mu_0p4", "mu_0p4To0p8", "mu_0p8To1p2", "mu_1p2To1p7", "mu_1p7ToInf",
+            "mu_0p0To0p4", "mu_0p4To0p8", "mu_0p8To1p2", "mu_1p2To1p7", "mu_1p7To2p3",
         ]
     },
     # only run on mc
@@ -185,7 +185,7 @@ def tau_weights_requires(self: Producer, reqs: dict) -> None:
 
 
 @tau_weights.setup
-def tau_weights_setup(self: Producer, reqs: dict, inputs: dict) -> None:
+def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
     bundle = reqs["external_files"]
 
     # create the trigger and id correctors
@@ -208,7 +208,7 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict) -> None:
 @producer(
     uses={
         "channel_id", "single_triggered", "cross_triggered",
-        "nTau", "Tau.pt", "Tau.decayMode",
+        "Tau.pt", "Tau.decayMode",
     },
     produces={
         "tau_trigger_weight",
@@ -318,7 +318,7 @@ def trigger_weights_requires(self: Producer, reqs: dict) -> None:
 
 
 @trigger_weights.setup
-def trigger_weights_setup(self: Producer, reqs: dict, inputs: dict) -> None:
+def trigger_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
     bundle = reqs["external_files"]
 
     # create the trigger and id correctors

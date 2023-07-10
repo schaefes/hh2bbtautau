@@ -368,8 +368,7 @@ def kinematic_vars_colljets(self: Producer, events: ak.Array, **kwargs) -> ak.Ar
     ones_count_ds = ak.pad_none(ones_count_ds, max(n_jets))
     ones_count_ds = ak.to_regular(ones_count_ds, axis=1)
     ones_count_ds = ak.fill_none(ones_count_ds, EMPTY_FLOAT)
-    print('invariant mass')
-    from IPython import embed; embed()
+
     events = set_ak_column_f32(events, "ones_count_ds", ones_count_ds)
 
     return events

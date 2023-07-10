@@ -47,8 +47,6 @@ norm_features = [["Colljets_pt", "Colljets_e", "Colljets_mass", "Colljets_eta", 
 #         name += "_dummy"
 #         input_features[0][i] = name
 
-nodes_deepSets = [128, 128, 128, 128, 128, 128]
-nodes_ff = [256, 256, 256, 256, 256, 256]
 
 # empty_overwrite options: "1": -1, "3sig": 3 sigma padding as replacement of EMPTY FLOAT values
 default_cls_dict = {
@@ -68,27 +66,31 @@ default_cls_dict = {
     "store_name": "inputs1",
     "n_features": len(input_features[0]),
     "n_output_nodes": len(processes),
-    "nodes_deepSets": nodes_deepSets,
-    "nodes_ff": nodes_ff,
     "batch_norm_deepSets": True,
     "batch_norm_ff": True,
-    "activation_func_deepSets": ["selu" for i in range(len(nodes_deepSets))],
-    "activation_func_ff": ["selu" for i in range(len(nodes_ff))],
-    "aggregations": ["Sum", "Max", "Min"],
+    "aggregations": ["Sum", "Max", "Mean"],
     "L2": False,
     "norm_features": norm_features,
     "empty_overwrite": "1",
     "quantity_weighting": True,
-    "jet_num_cut": 3
-
+    "jet_num_cut": 1,
+    "baseline_jets": 4,
 }
+
+nodes_deepSets_op = default_cls_dict["baseline_jets"] * default_cls_dict["n_features"]
+nodes_deepSets = [256, 256, 256, 128, 128, nodes_deepSets_op]
+nodes_ff = [256, 256, 256, 256, 256, 256]
 
 # derived model, usable on command line
 default_dnn = SimpleDNN.derive("default", cls_dict=default_cls_dict)
 
 # test model settings
 cls_dict = default_cls_dict
-cls_dict["model_name"] = f"{len(processes)}classes_4jets_quantity_weighting"
+cls_dict["model_name"] = f"{len(processes)}classes_baseline"
+cls_dict["nodes_deepSets"] = nodes_deepSets
+cls_dict["nodes_ff"] = nodes_ff
+cls_dict["activation_func_deepSets"] = ["selu" for i in range(len(nodes_deepSets))]
+cls_dict["activation_func_ff"] = ["selu" for i in range(len(nodes_ff))]
 
 test_dnn = SimpleDNN.derive("test", cls_dict=cls_dict)
 

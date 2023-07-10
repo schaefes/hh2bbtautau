@@ -18,6 +18,7 @@ from scinum import Number
 from columnflow.util import DotDict, dev_sandbox
 from columnflow.config_util import (
     get_root_processes_from_campaign, add_shift_aliases, get_shifts_from_sources,
+    verify_config_processes,
 )
 
 
@@ -163,6 +164,9 @@ def add_config(
             for info in dataset.info.values():
                 info.n_files = min(info.n_files, limit_dataset_files)
 
+    # verify that the root process of all datasets is part of any of the registered processes
+    verify_config_processes(cfg, warn=True)
+
     # default objects, such as calibrator, selector, producer, ml model, inference model, etc
     cfg.x.default_calibrator = "default"
     cfg.x.default_selector = "default"
@@ -233,7 +237,7 @@ def add_config(
     # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL16preVFP?rev=6
     # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL16postVFP?rev=8
     # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=15
-    # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL17?rev=17
+    # https://twiki.cern.ch/twiki/bin/view/CMS/BtagRecommendation106XUL18?rev=18
     btag_key = f"2016{campaign.x.vfp}" if year == 2016 else year
     cfg.x.btag_working_points = DotDict.wrap({
         "deepjet": {

@@ -407,7 +407,7 @@ def write_info_file(
     # write info on model for the txt file
     txt_input = f'Processes: {[process_insts[i].name for i in range(len(process_insts))]}\n'
     txt_input += f'Initial Learning Rate: {learningrate}, Input Handling: Standardization Z-Score \n'
-    txt_input += f'Required number of Jets per Event: {min_jet_num + 1}'
+    txt_input += f'Required number of Jets per Event: {min_jet_num + 1}\n'
     txt_input += f'Weights used in Loss: {loss_weights.items()}\n'
     txt_input += f'Input Features Deep Sets: {feature_names[0]}\n'
     txt_input += f'Input Features FF: {feature_names[1]}\n'

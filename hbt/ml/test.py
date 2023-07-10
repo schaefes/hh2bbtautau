@@ -17,19 +17,13 @@ from columnflow.columnar_util import Route, set_ak_column
 
 
 ak = maybe_import("awkward")
-tf = maybe_import("tensorflow")
 
 law.contrib.load("tensorflow")
 
 
 class TestModel(MLModel):
 
-    def __init__(self, *args, folds: int | None = None, **kwargs):
-        super().__init__(*args, **kwargs)
-        # class-to-instance-level attributes
-        # (before being set, self.folds refers to a class-level attribute)
-        self.folds = folds or self.folds
-
+    def setup(self):
         # dynamically add variables for the quantities produced by this model
         if f"{self.cls_name}.n_muon" not in self.config_inst.variables:
             self.config_inst.add_variable(
@@ -48,18 +42,18 @@ class TestModel(MLModel):
     def sandbox(self, task: law.Task) -> str:
         return dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar_tf.sh")
 
-    def datasets(self) -> set[od.Dataset]:
+    def datasets(self, config_inst: od.Config) -> set[od.Dataset]:
         return {
-            self.config_inst.get_dataset("hh_ggf_bbtautau_madgraph"),
-            self.config_inst.get_dataset("tt_sl_powheg"),
+            config_inst.get_dataset("hh_ggf_bbtautau_madgraph"),
+            config_inst.get_dataset("tt_sl_powheg"),
         }
 
-    def uses(self) -> set[Route | str]:
+    def uses(self, config_inst: od.Config) -> set[Route | str]:
         return {
             "ht", "n_jet", "n_muon", "n_electron", "normalization_weight",
         }
 
-    def produces(self) -> set[Route | str]:
+    def produces(self, config_inst: od.Config) -> set[Route | str]:
         return {
             f"{self.cls_name}.n_muon", f"{self.cls_name}.n_electron",
         }
@@ -67,7 +61,7 @@ class TestModel(MLModel):
     def output(self, task: law.Task) -> law.FileSystemDirectoryTarget:
         return task.target(f"mlmodel_f{task.fold}of{self.folds}", dir=True)
 
-    def open_model(self, target: law.FileSystemDirectoryTarget) -> tf.keras.models.Model:
+    def open_model(self, target: law.FileSystemDirectoryTarget):
         return target.load(formatter="tf_keras_model")
 
     def train(
@@ -76,6 +70,8 @@ class TestModel(MLModel):
         input: dict[str, list[law.FileSystemFileTarget]],
         output: law.FileSystemDirectoryTarget,
     ) -> None:
+        tf = maybe_import("tensorflow")
+
         # define a dummy NN
         x = tf.keras.Input(shape=(2,))
         a1 = tf.keras.layers.Dense(10, activation="elu")(x)

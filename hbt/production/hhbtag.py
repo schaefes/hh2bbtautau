@@ -8,13 +8,12 @@ See https://github.com/hh-italian-group/HHbtag.
 import law
 
 from columnflow.production import Producer, producer
-from columnflow.util import maybe_import, dev_sandbox
+from columnflow.util import maybe_import, dev_sandbox, InsertableDict
 from columnflow.columnar_util import EMPTY_FLOAT, layout_ak_array
 
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
-tf = maybe_import("tensorflow")
 
 logger = law.logger.get_logger(__name__)
 
@@ -25,7 +24,7 @@ logger = law.logger.get_logger(__name__)
         "channel_id",
         # nano columns
         "event",
-        "nJet", "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", "Jet.puId",
+        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.jetId", "Jet.puId",
         "Jet.btagDeepFlavB",
         "MET.pt", "MET.phi",
     },
@@ -76,11 +75,10 @@ def hhbtag(
         jet_shape * ak.sum(leps.pt, axis=1),
     ]
 
-    # helper to split events, cast to float 32, concatenate across new axis,
+    # helper to split events, cast to float32, concatenate across new axis,
     # then pad with zeros for up to n_jets_max jets
     def split(where):
-        # when there are no events matched by the mask, ak.concatenate (unlike np) fails
-        features = np.concatenate(
+        features = ak.concatenate(
             [
                 ak.values_astype(f[where][..., None], np.float32)
                 for f in input_features
@@ -145,10 +143,12 @@ def hhbtag_requires(self: Producer, reqs: dict) -> None:
 
 
 @hhbtag.setup
-def hhbtag_setup(self: Producer, reqs: dict, inputs: dict) -> None:
+def hhbtag_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: InsertableDict) -> None:
     """
     Sets up the two HHBtag TF models.
     """
+    tf = maybe_import("tensorflow")
+
     # unpack the external files bundle, create a subdiretory and unpack the hhbtag repo in it
     bundle = reqs["external_files"]
     arc = bundle.files.hh_btag_repo

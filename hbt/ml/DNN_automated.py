@@ -100,10 +100,19 @@ class DeepSet(tf.keras.Model):
         self.std_layer = StdLayer()
         self.concat_layer = tf.keras.layers.Concatenate(axis=1)
 
+        # masking layer
+        self.masking_layer = tf.keras.layers.Masking(mask_value=0.0)
+
     def call(self, inputs):
         x = self.hidden_layers[0](inputs)
         for layer in self.hidden_layers[1:]:
             x = layer(x)
+
+        print('DeepSet DenseBlock', x.shape)
+
+        # masking of padded jets
+        x = self.masking_layer(x)
+        print('DeepSet Masking', x.shape)
 
         aggregation_layers = []
         for func in self.aggregations:
@@ -160,6 +169,20 @@ class CombinedDeepSetNetwork(tf.keras.Model):
         deepset_output = self.deepset_network(deepset_inputs)
         concatenated_inputs = self.concat_layer((deepset_output, feedforward_inputs))
         output = self.feed_forward_network(concatenated_inputs)
+        return output
+
+
+class BaseLineFF(tf.keras.Model):
+    def __init__(self, feedforward_config):
+        super(BaseLineFF, self).__init__()
+
+        self.concat_layer = tf.keras.layers.Concatenate(axis=1)
+        self.feed_forward_network = FeedForwardNetwork(**feedforward_config)
+
+    def call(self, inputs):
+        jets_inp, events_inp = inputs
+        concat_inp = self.concat_layer((jets_inp, events_inp))
+        output = self.feed_forward_network(concat_inp)
         return output
 
 

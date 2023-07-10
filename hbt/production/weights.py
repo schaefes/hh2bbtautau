@@ -6,7 +6,7 @@ Column production methods related to generic event weights.
 
 from columnflow.production import Producer, producer
 from columnflow.production.cms.pileup import pu_weight
-from columnflow.util import maybe_import, safe_div
+from columnflow.util import maybe_import, safe_div, InsertableDict
 from columnflow.columnar_util import set_ak_column
 
 
@@ -67,7 +67,12 @@ def normalized_pu_weight_requires(self: Producer, reqs: dict) -> None:
 
 
 @normalized_pu_weight.setup
-def normalized_pu_weight_setup(self: Producer, reqs: dict, inputs: dict) -> None:
+def normalized_pu_weight_setup(
+    self: Producer,
+    reqs: dict,
+    inputs: dict,
+    reader_targets: InsertableDict,
+) -> None:
     # load the selection stats
     stats = inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json")
     # in case the format for the pu selection stats ever changes, the line above will
@@ -133,13 +138,18 @@ def normalized_pdf_weight_requires(self: Producer, reqs: dict) -> None:
 
 
 @normalized_pdf_weight.setup
-def normalized_pdf_weight_setup(self: Producer, reqs: dict, inputs: dict) -> None:
+def normalized_pdf_weight_setup(
+    self: Producer,
+    reqs: dict,
+    inputs: dict,
+    reader_targets: InsertableDict,
+) -> None:
     # load the selection stats
     stats = inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json")
 
     # save average weights
     self.average_pdf_weights = {
-        postfix: safe_div(stats[f"sum_pdf_weight{postfix}"], stats["n_events"])
+        postfix: safe_div(stats[f"sum_pdf_weight{postfix}"], stats["num_events"])
         for postfix in ["", "_up", "_down"]
     }
 
@@ -178,12 +188,17 @@ def normalized_murmuf_weight_requires(self: Producer, reqs: dict) -> None:
 
 
 @normalized_murmuf_weight.setup
-def normalized_murmuf_weight_setup(self: Producer, reqs: dict, inputs: dict) -> None:
+def normalized_murmuf_weight_setup(
+    self: Producer,
+    reqs: dict,
+    inputs: dict,
+    reader_targets: InsertableDict,
+) -> None:
     # load the selection stats
     stats = inputs["selection_stats"]["collection"][0]["stats"].load(formatter="json")
 
     # save average weights
     self.average_murmuf_weights = {
-        postfix: safe_div(stats[f"sum_murmuf_weight{postfix}"], stats["n_events"])
+        postfix: safe_div(stats[f"sum_murmuf_weight{postfix}"], stats["num_events"])
         for postfix in ["", "_up", "_down"]
     }
