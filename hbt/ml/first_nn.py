@@ -21,10 +21,8 @@ from hbt.config.categories import add_categories_ml
 from columnflow.columnar_util import EMPTY_FLOAT
 from hbt.ml.plotting import (
     plot_loss, plot_accuracy, plot_confusion, plot_roc_ovr, plot_output_nodes, plot_significance,
-    plot_shap_values, write_info_file
+    write_info_file, plot_shap_baseline
 )
-
-# from dotted_dict import DottedDict
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -32,7 +30,7 @@ tf = maybe_import("tensorflow")
 pickle = maybe_import("pickle")
 keras = maybe_import("tensorflow.keras")
 sklearn = maybe_import("sklearn")
-dotted_dict = maybe_import("dotted_dict")
+# dotted_dict = maybe_import("dotted_dict")
 
 logger = law.logger.get_logger(__name__)
 
@@ -84,7 +82,7 @@ def reshape_norm_inputs(events_dict, n_features, norm_features, input_features, 
     std_feature1[delete_standardization1] = 1
 
     jets_collection = []
-    jets_flat_collection = []
+    jets_baseline_collection = []
     for i in range(events_dict['inputs'].shape[0]):
         arr_events = events_dict['inputs'][i]
         arr_shaped = np.reshape(arr_events, (-1, n_features))
@@ -93,13 +91,13 @@ def reshape_norm_inputs(events_dict, n_features, norm_features, input_features, 
         arr_shaped[arr_mask] = arr_normalized
         arr_shaped = np.where(arr_shaped == EMPTY_FLOAT, 0, arr_shaped)
         baseline_model_inp = arr_shaped[:4, :].flatten()
-        jets_flat_collection.append(baseline_model_inp)
+        jets_baseline_collection.append(baseline_model_inp)
         jets_shaped = np.reshape(arr_shaped.flatten(), (1, -1, n_features))
         jets_collection.append(jets_shaped)
     stacked_events = tf.convert_to_tensor(jets_collection)
-    flat_jets = tf.convert_to_tensor(jets_flat_collection)
+    base_jets = tf.convert_to_tensor(jets_baseline_collection)
     events_dict['inputs'] = tf.squeeze(stacked_events, axis=1)
-    events_dict['input_jets_baseline'] = flat_jets
+    events_dict['input_jets_baseline'] = base_jets
 
     # normalization of inputs2
     mean_feature2 = np.zeros(len(input_features[1]))
@@ -162,6 +160,7 @@ class SimpleDNN(MLModel):
             quantity_weighting: bool | None = None,
             jet_num_cut: int | None = None,
             baseline_jets: int | None = None,
+            model_type: str | None = None,
             **kwargs,
     ):
         """
@@ -194,6 +193,7 @@ class SimpleDNN(MLModel):
         self.quantity_weighting = quantity_weighting or self.quantity_weighting
         self.jet_num_cut = jet_num_cut or self.jet_num_cut
         self.baseline_jets = baseline_jets or self.baseline_jets
+        self.model_type = model_type or self.model_type
         # DNN model parameters
         """
         self.layers = [512, 512, 512]
@@ -427,7 +427,7 @@ class SimpleDNN(MLModel):
                 # make a cut on the jet number
                 mask = events.n_jets > self.jet_num_cut
                 weights = weights[mask]
-                events_new = dotted_dict.DottedDict()
+                events_new = {}
                 for feature in events.fields:
                     events_new[feature] = events[feature][mask]
                 events_new = ak.Array(events_new)
@@ -564,7 +564,8 @@ class SimpleDNN(MLModel):
         call_func_safe(plot_significance, model, train, validation, output, self.process_insts)
 
         # create shap feature ranking
-        # call_func_safe(plot_shap_values, model_ff, train, output, self.process_insts, self.target_dict, feature_names)
+        if self.model_type == 'baseline':
+            call_func_safe(plot_shap_baseline, model, train, output, self.process_insts, self.target_dict, feature_names, self.baseline_jets)
 
     def train(
         self,
@@ -619,8 +620,14 @@ class SimpleDNN(MLModel):
         feedforward_config = {'nodes': self.nodes_ff, 'activations': self.activation_func_ff,
             'n_classes': self.n_output_nodes}
 
-        # model = CombinedDeepSetNetwork(deepset_config, feedforward_config)
-        model = BaseLineFF(feedforward_config)
+        if self.model_type == "basline":
+            model = BaseLineFF(feedforward_config)
+            tf_train = [[train['input_jets_baseline'], train['inputs2']], train['target']]
+            tf_validation = [[validation['input_jets_baseline'], validation['inputs2']], validation['target']]
+        else:
+            model = CombinedDeepSetNetwork(deepset_config, feedforward_config)
+            tf_train = [[train['inputs'], train['inputs2']], train['target']]
+            tf_validation = [[validation['inputs'], validation['inputs2']], validation['target']]
 
         activation_settings = {
             "elu": ("ELU", "he_uniform", "Dropout"),
@@ -678,12 +685,10 @@ class SimpleDNN(MLModel):
         #     ).batch(self.batchsize)
 
         # train and validation for deep sets model
-        # tf_train = [[train['inputs'], train['inputs2']], train['target']]
-        # tf_validation = [[validation['inputs'], validation['inputs2']], validation['target']]
+
 
         # train and validation for the basline model without deep sets
-        tf_train = [[train['input_jets_baseline'], train['inputs2']], train['target']]
-        tf_validation = [[validation['input_jets_baseline'], validation['inputs2']], validation['target']]
+
 
         fit_kwargs = {
             "epochs": self.epochs,

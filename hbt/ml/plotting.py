@@ -385,6 +385,93 @@ def plot_shap_values_deep_sets(
     shap_values = explainer.shap_values(inp[-50:])
 
 
+def plot_shap_baseline(
+        model: tf.keras.models.Model,
+        train: DotDict,
+        output: law.FileSystemDirectoryTarget,
+        process_insts: tuple[od.Process],
+        target_dict,
+        feature_names,
+        baseline_jets,
+) -> None:
+
+    feature_dict = {
+        "mjj": r"$m_{jj}$",
+        "mbjetbjet": r"$m_{bb}$",
+        "mHH": r"$m_{HH}$",
+        "mtautau": r"$m_{\tau\tau}$",
+        "jets_max_d_eta": r"max $\Delta \eta$",
+        "jets_d_eta_inv_mass": r"$m_{jj, \Delta \eta}$",
+        "ht": r"$h_{t}$",
+        "n_jets": r"$n_{jets}$"
+    }
+
+    feature_names_jets = []
+    for i in range(1, baseline_jets + 1):
+        feature_list = [feature_name + f"_{i}" for feature_name in feature_names[0]]
+        feature_names_jets.append(feature_list)
+
+    for name in feature_names_jets:
+        str_slice_quantity, str_slice_num = name.split("_")[1:]
+        feature_dict[f"{name}"] = f"$Jet{str_slice_num} {str_slice_quantity}"
+
+    # names of features and classes
+    jet_features = [feature_dict[feature] for feature in feature_names_jets]
+    feature_list_2 = [feature_dict[feature] for feature in feature_names[1]]
+
+    all_features = np.concatenate((jet_features, feature_list_2), axis=1)
+
+    # make sure class names are sorted correctly in correspondence to their target index
+    classes = sorted(target_dict.items(), key=lambda x: x[1])
+    class_sorted = np.array(classes)[:, 0]
+    class_list = ['empty' for i in range(len(process_insts))]
+    for proc in process_insts:
+        idx = np.where(class_sorted == proc.name)
+        class_list[idx[0][0]] = proc.label
+
+    # calculate shap values
+    subset_idx = 200
+    inp_jets = train['input_jets_baseline'].numpy()
+    inp_2 = train['inputs2'].numpy()
+    inp = np.concatenate((inp_jets, inp_2), axis=1)
+    explainer = shap.KernelExplainer(model, inp[:subset_idx])
+    shap_values = explainer.shap_values(inp[:subset_idx])
+
+    # Feature Ranking
+    fig1 = plt.figure()
+    shap.summary_plot(shap_values, inp[:500], plot_type="bar",
+        feature_names=all_features, class_names=class_list)
+    output.child("Feature_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
+
+    # Sanity Plots to check represesantation of subset used for shap values
+    fig_check, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
+    fig_check.suptitle('Distributions for Subset and complete Set')
+    jet1_pt = train['input_jets_baseline'][:, 0]
+    jet1_pt_partial = jet1_pt[:subset_idx]
+    inv_mass_idx = np.where(feature_names[1] == "jets_d_eta_inv_mass")
+    inp2_inv_mass_eta = train['inputs2'][:, inv_mass_idx]
+    inp2_inv_mass_eta_partial = inp2_inv_mass_eta[:subset_idx]
+
+    ax1.hist(jet1_pt_partial, bins=20)
+    ax1.set_title(r'Subset')
+    ax1.set(ylabel=r'Jet1 $p_{T}$')
+    ax2.hist(jet1_pt, bins=20)
+    ax1.set_title(r'Complete Set')
+
+    ax3.hist(inp2_inv_mass_eta_partial, bins=20)
+    ax3.set(ylabel=f"{feature_dict['jets_d_eta_inv_mass']}")
+    ax4.hist(inp2_inv_mass_eta, bins=20)
+
+    output.child("Subset_Check.pdf", type="f").dump(fig_check, formatter="mpl")
+
+    # Violin Plots
+    for i, node in enumerate(class_list):
+        fig2 = plt.figure()
+        shap.summary_plot(shap_values[i], inp[:100], plot_type="violin",
+            feature_names=all_features, class_names=node)
+        output.child(f"Violin_{class_sorted[i]}.pdf", type="f").dump(fig2, formatter="mpl")
+
+
 def write_info_file(
         output: law.FileSystemDirectoryTarget,
         agg_funcs,

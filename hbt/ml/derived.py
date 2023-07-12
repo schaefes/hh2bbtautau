@@ -75,6 +75,7 @@ default_cls_dict = {
     "quantity_weighting": True,
     "jet_num_cut": 1,
     "baseline_jets": 4,
+    "model_type": 'baseline',
 }
 
 nodes_deepSets_op = default_cls_dict["baseline_jets"] * default_cls_dict["n_features"]
@@ -86,7 +87,7 @@ default_dnn = SimpleDNN.derive("default", cls_dict=default_cls_dict)
 
 # test model settings
 cls_dict = default_cls_dict
-cls_dict["model_name"] = f"{len(processes)}classes_baseline"
+cls_dict["model_name"] = f"{len(processes)}classes_test"
 cls_dict["nodes_deepSets"] = nodes_deepSets
 cls_dict["nodes_ff"] = nodes_ff
 cls_dict["activation_func_deepSets"] = ["selu" for i in range(len(nodes_deepSets))]
