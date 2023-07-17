@@ -108,11 +108,11 @@ class DeepSet(tf.keras.Model):
         for layer in self.hidden_layers[1:]:
             x = layer(x)
 
-        print('DeepSet DenseBlock', x.shape)
+        # print('DeepSet DenseBlock', x.shape)
 
         # masking of padded jets
         x = self.masking_layer(x)
-        print('DeepSet Masking', x.shape)
+        # print('DeepSet Masking', x.shape)
 
         aggregation_layers = []
         for func in self.aggregations:
@@ -150,9 +150,11 @@ class FeedForwardNetwork(tf.keras.Model):
 
     def call(self, inputs):
         x = self.hidden_layers[0](inputs)
+        # print('ff input:', inputs.shape)
         for layer in self.hidden_layers[1:]:
             x = layer(x)
         output = self.output_layer(x)
+        # print('ff output:', output.shape)
         return output
 
 
@@ -176,13 +178,10 @@ class BaseLineFF(tf.keras.Model):
     def __init__(self, feedforward_config):
         super(BaseLineFF, self).__init__()
 
-        self.concat_layer = tf.keras.layers.Concatenate(axis=1)
         self.feed_forward_network = FeedForwardNetwork(**feedforward_config)
 
     def call(self, inputs):
-        jets_inp, events_inp = inputs
-        concat_inp = self.concat_layer((jets_inp, events_inp))
-        output = self.feed_forward_network(concat_inp)
+        output = self.feed_forward_network(inputs)
         return output
 
 

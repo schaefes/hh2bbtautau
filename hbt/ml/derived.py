@@ -34,7 +34,7 @@ dataset_names = {
 #     for var in feature_list],
 #     ["mjj", "mbjetbjet", "mtautau", "mHH"]]
 
-input_features = [["Colljets_pt", "Colljets_e", "Colljets_mass", "Colljets_eta", "Colljets_phi", "Colljets_btag", "ones_count_ds"],
+input_features = [["Colljets_pt", "Colljets_e", "Colljets_mass", "Colljets_eta", "Colljets_phi", "Colljets_btag"],
                   ["mjj", "mbjetbjet", "mtautau", "mHH", "jets_max_d_eta", "jets_d_eta_inv_mass",
                    "ht", "n_jets"]]
 
@@ -49,6 +49,9 @@ norm_features = [["Colljets_pt", "Colljets_e", "Colljets_mass", "Colljets_eta", 
 
 
 # empty_overwrite options: "1": -1, "3sig": 3 sigma padding as replacement of EMPTY FLOAT values
+# baseline_jets: max number of jets considered
+# model_type: baseline-> baselie model used else deepsets
+# quantity_weighting: weighting of the processes accroding to the amount of samples for each samples
 default_cls_dict = {
     "folds": 3,
     # "max_events": 10**6,  # TODO

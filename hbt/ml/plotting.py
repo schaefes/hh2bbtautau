@@ -406,20 +406,31 @@ def plot_shap_baseline(
         "n_jets": r"$n_{jets}$"
     }
 
+    quantity_dict = {
+        "pt": r"$p_{T}$",
+        "eta": r"$\eta$",
+        "phi": r"$\Phi$",
+        "mass": "mass",
+        "e": "E",
+        "btag": "btag"
+    }
+
     feature_names_jets = []
     for i in range(1, baseline_jets + 1):
         feature_list = [feature_name + f"_{i}" for feature_name in feature_names[0]]
         feature_names_jets.append(feature_list)
 
+    feature_names_jets = np.concatenate(feature_names_jets)
+
     for name in feature_names_jets:
         str_slice_quantity, str_slice_num = name.split("_")[1:]
-        feature_dict[f"{name}"] = f"$Jet{str_slice_num} {str_slice_quantity}"
+        feature_dict[f"{name}"] = f"Jet {str_slice_num} {quantity_dict[str_slice_quantity]}"
 
     # names of features and classes
     jet_features = [feature_dict[feature] for feature in feature_names_jets]
     feature_list_2 = [feature_dict[feature] for feature in feature_names[1]]
 
-    all_features = np.concatenate((jet_features, feature_list_2), axis=1)
+    all_features = np.concatenate((jet_features, feature_list_2))
 
     # make sure class names are sorted correctly in correspondence to their target index
     classes = sorted(target_dict.items(), key=lambda x: x[1])
@@ -431,45 +442,78 @@ def plot_shap_baseline(
 
     # calculate shap values
     subset_idx = 200
-    inp_jets = train['input_jets_baseline'].numpy()
-    inp_2 = train['inputs2'].numpy()
-    inp = np.concatenate((inp_jets, inp_2), axis=1)
+    inp = train['input_jets_baseline']
     explainer = shap.KernelExplainer(model, inp[:subset_idx])
     shap_values = explainer.shap_values(inp[:subset_idx])
 
-    # Feature Ranking
-    fig1 = plt.figure()
-    shap.summary_plot(shap_values, inp[:500], plot_type="bar",
-        feature_names=all_features, class_names=class_list)
-    output.child("Feature_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
-
     # Sanity Plots to check represesantation of subset used for shap values
-    fig_check, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
-    fig_check.suptitle('Distributions for Subset and complete Set')
     jet1_pt = train['input_jets_baseline'][:, 0]
     jet1_pt_partial = jet1_pt[:subset_idx]
-    inv_mass_idx = np.where(feature_names[1] == "jets_d_eta_inv_mass")
+    inv_mass_idx = feature_names[1].index("jets_d_eta_inv_mass")
     inp2_inv_mass_eta = train['inputs2'][:, inv_mass_idx]
     inp2_inv_mass_eta_partial = inp2_inv_mass_eta[:subset_idx]
 
-    ax1.hist(jet1_pt_partial, bins=20)
-    ax1.set_title(r'Subset')
-    ax1.set(ylabel=r'Jet1 $p_{T}$')
-    ax2.hist(jet1_pt, bins=20)
-    ax1.set_title(r'Complete Set')
+    # Binning and Hist Counts used to normalize
+    n_bins = 20
+    step_pt = (np.max(jet1_pt) - np.min(jet1_pt)) / n_bins
+    step_d_eta = (np.max(inp2_inv_mass_eta) - np.min(inp2_inv_mass_eta)) / n_bins
+    binning_edges_pt = np.arange(np.min(jet1_pt), np.max(jet1_pt), step_pt)
+    binning_edges_d_eta = np.arange(np.min(inp2_inv_mass_eta), np.max(inp2_inv_mass_eta), step_d_eta)
 
-    ax3.hist(inp2_inv_mass_eta_partial, bins=20)
-    ax3.set(ylabel=f"{feature_dict['jets_d_eta_inv_mass']}")
-    ax4.hist(inp2_inv_mass_eta, bins=20)
+    counts_pt_full, binning_edges_pt, _ = plt.hist(jet1_pt, bins=binning_edges_pt)
+    counts_pt_sub, binning_edges_pt, _ = plt.hist(jet1_pt_partial, bins=binning_edges_pt)
+    counts_d_eta_full, binning_edges_d_eta, _ = plt.hist(inp2_inv_mass_eta, bins=binning_edges_d_eta)
+    counts_d_eta_sub, binning_edges_d_eta, _ = plt.hist(inp2_inv_mass_eta_partial, bins=binning_edges_d_eta)
+
+    binning_middle_pt = (binning_edges_pt - step_pt / 2)[1:]
+    binning_middle_d_eta = (binning_edges_d_eta - step_d_eta / 2)[1:]
+
+    fig_check, axs = plt.subplots(2, 2, sharex=False, sharey=False)
+    fig_check.suptitle('Distributions for Subset and complete Set')
+
+    axs[0, 0].hist(binning_middle_pt, weights=counts_pt_sub / np.sum(counts_pt_sub), bins=binning_edges_pt)
+    axs[0, 1].hist(binning_middle_pt, weights=counts_pt_full / np.sum(counts_pt_full), bins=binning_edges_pt)
+
+    axs[1, 0].hist(binning_middle_d_eta, weights=counts_d_eta_sub / np.sum(counts_d_eta_sub), bins=binning_edges_d_eta)
+    axs[1, 1].hist(binning_middle_d_eta, weights=counts_d_eta_full / np.sum(counts_d_eta_full), bins=binning_edges_d_eta)
+
+    axs[0, 0].set_title(r'Subset')
+    axs[0, 0].set_title(r'Complete Set')
+    axs[0, 0].set(ylabel=r'Jet 1 $p_{T}$')
+    axs[0, 1].set_title(r'Subset')
+    axs[1, 0].set(ylabel=f"{feature_dict['jets_d_eta_inv_mass']}")
 
     output.child("Subset_Check.pdf", type="f").dump(fig_check, formatter="mpl")
 
     # Violin Plots
-    for i, node in enumerate(class_list):
-        fig2 = plt.figure()
-        shap.summary_plot(shap_values[i], inp[:100], plot_type="violin",
-            feature_names=all_features, class_names=node)
-        output.child(f"Violin_{class_sorted[i]}.pdf", type="f").dump(fig2, formatter="mpl")
+    for i, class_node in enumerate(class_list):
+        fig_vio = plt.figure()
+        shap.summary_plot(shap_values[i], inp[:subset_idx], plot_type="violin",
+            feature_names=all_features, class_names=class_node, show=False)
+        plt.title(f"Violin for {class_node}")
+        output.child(f"Violin_{class_sorted[i]}.pdf", type="f").dump(fig_vio, formatter="mpl")
+
+    # fig_vio0 = plt.figure()
+    # shap.summary_plot(shap_values[0], inp[:subset_idx], plot_type="violin",
+    #     feature_names=all_features, class_names=class_list[0], title=class_list[0])
+    # output.child(f"Violin_{class_sorted[0]}.pdf", type="f").dump(fig_vio0, formatter="mpl")
+
+    # fig_vio1 = plt.figure()
+    # shap.summary_plot(shap_values[1], inp[:subset_idx], plot_type="violin",
+    #     feature_names=all_features, class_names=class_list[1], title=class_list[1])
+    # output.child(f"Violin_{class_sorted[1]}.pdf", type="f").dump(fig_vio1, formatter="mpl")
+
+    # fig_vio2 = plt.figure()
+    # shap.summary_plot(shap_values[2], inp[:subset_idx], plot_type="violin",
+    #     feature_names=all_features, class_names=class_list[2], title=class_list[2])
+    # output.child(f"Violin_{class_sorted[2]}.pdf", type="f").dump(fig_vio2, formatter="mpl")
+
+    # Feature Ranking
+    fig1 = plt.figure()
+    shap.summary_plot(shap_values, inp[:subset_idx], plot_type="bar",
+        feature_names=all_features, class_names=class_list, show=False)
+    plt.title('Feature Importance Ranking')
+    output.child("Feature_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
 
 
 def write_info_file(
@@ -489,20 +533,23 @@ def write_info_file(
         ml_proc_weights,
         min_jet_num,
         loss_weights,
+        model_type,
 ) -> None:
 
     # write info on model for the txt file
+    txt_input = f'Model Type: {model_type}'
     txt_input = f'Processes: {[process_insts[i].name for i in range(len(process_insts))]}\n'
     txt_input += f'Initial Learning Rate: {learningrate}, Input Handling: Standardization Z-Score \n'
     txt_input += f'Required number of Jets per Event: {min_jet_num + 1}\n'
     txt_input += f'Weights used in Loss: {loss_weights.items()}\n'
-    txt_input += f'Input Features Deep Sets: {feature_names[0]}\n'
+    if model_type != 'baseline':
+        txt_input += 'Deep Sets Architecture:\n'
+        txt_input += f'Input Features Deep Sets: {feature_names[0]}\n'
+        txt_input += f'Layers: {len(nodes_deepSets)}, Nodes: {nodes_deepSets}, Activation Function: {activation_func_deepSets}, Batch Norm: {batch_norm_deepSets}\n'
     txt_input += f'Input Features FF: {feature_names[1]}\n'
     txt_input += f'Aggregation Functions: {agg_funcs} \n'
     txt_input += f'EMPTY_FLOAT overwrite: {empty_overwrite}\n'
     txt_input += f'{ml_proc_weights}'
-    txt_input += 'Deep Sets Architecture:\n'
-    txt_input += f'Layers: {len(nodes_deepSets)}, Nodes: {nodes_deepSets}, Activation Function: {activation_func_deepSets}, Batch Norm: {batch_norm_deepSets}\n'
     txt_input += 'FF Architecture:\n'
     txt_input += f'Layers: {len(nodes_ff)}, Nodes: {nodes_ff}, Activation Function: {activation_func_ff}, Batch Norm: {batch_norm_ff}\n'
 

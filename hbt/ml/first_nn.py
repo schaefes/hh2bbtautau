@@ -90,14 +90,13 @@ def reshape_norm_inputs(events_dict, n_features, norm_features, input_features, 
         arr_normalized = (arr_shaped[arr_mask] - mean_feature1) / std_feature1
         arr_shaped[arr_mask] = arr_normalized
         arr_shaped = np.where(arr_shaped == EMPTY_FLOAT, 0, arr_shaped)
-        baseline_model_inp = arr_shaped[:4, :].flatten()
+        baseline_model_inp = arr_shaped[:baseline_jets, :].flatten()
         jets_baseline_collection.append(baseline_model_inp)
         jets_shaped = np.reshape(arr_shaped.flatten(), (1, -1, n_features))
         jets_collection.append(jets_shaped)
     stacked_events = tf.convert_to_tensor(jets_collection)
     base_jets = tf.convert_to_tensor(jets_baseline_collection)
     events_dict['inputs'] = tf.squeeze(stacked_events, axis=1)
-    events_dict['input_jets_baseline'] = base_jets
 
     # normalization of inputs2
     mean_feature2 = np.zeros(len(input_features[1]))
@@ -129,7 +128,9 @@ def reshape_norm_inputs(events_dict, n_features, norm_features, input_features, 
     for i in range(len(input_features[1])):
         events_dict['inputs2'][:, i] = (events_dict['inputs2'][:, i] - mean_feature2[i]) / std_feature2[i]
 
-    events_dict['inputs2'] = tf.reshape(events_dict['inputs2'], [-1, events_dict['inputs2'].shape[1]])
+    inputs_2 = tf.reshape(events_dict['inputs2'], [-1, events_dict['inputs2'].shape[1]])
+    events_dict['input_jets_baseline'] = np.concatenate((base_jets,inputs_2), axis=1)
+    events_dict['inputs2'] = inputs_2
 
     # reshape of target
     events_dict['target'] = tf.reshape(events_dict['target'], [-1, n_output_nodes])
@@ -509,8 +510,6 @@ class SimpleDNN(MLModel):
     def instant_evaluate(
         self,
         task: law.Task,
-        model_deepsets,
-        model_ff,
         model,
         feature_names,
         class_names,
@@ -533,7 +532,7 @@ class SimpleDNN(MLModel):
             except Exception as e:
                 # logger.warning(f"Function '{func.__name__}' failed due to {type(e)}: {e}")
                 print('Failed')
-                from IPython import embed; embed()
+                #from IPython import embed; embed()
                 outp = None
 
             return outp
@@ -543,9 +542,14 @@ class SimpleDNN(MLModel):
         call_func_safe(plot_loss, model.history.history, output)
 
         # evaluate training and validation sets
-        train['prediction'] = call_func_safe(model, [train['inputs'], train['inputs2']])
-        validation['prediction'] = call_func_safe(model, [validation['inputs'], validation['inputs2']])
-        train['prediction_deepSets'] = call_func_safe(model_deepsets, train['inputs'])
+        if self.model_type == "baseline":
+            train['prediction'] = call_func_safe(model, train['input_jets_baseline'])
+            validation['prediction'] = call_func_safe(model, validation['input_jets_baseline'])
+        else:
+            train['prediction'] = call_func_safe(model, [train['inputs'], train['inputs2']])
+            validation['prediction'] = call_func_safe(model, [validation['inputs'], validation['inputs2']])
+
+        # train['prediction_deepSets'] = call_func_safe(model_deepsets, train['inputs'])
         # train['prediction'] = np.reshape(train['prediction'], [len(train['prediction']), len(train['prediction'][0][0])])
         # validation['prediction'] = np.reshape(validation['prediction'], [len(validation['prediction']), len(validation['prediction'][0][0])])
         # train['target'] = np.reshape(train['target'], [len(train['target']), len(train['target'][0][0])])
@@ -620,10 +624,10 @@ class SimpleDNN(MLModel):
         feedforward_config = {'nodes': self.nodes_ff, 'activations': self.activation_func_ff,
             'n_classes': self.n_output_nodes}
 
-        if self.model_type == "basline":
+        if self.model_type == "baseline":
             model = BaseLineFF(feedforward_config)
-            tf_train = [[train['input_jets_baseline'], train['inputs2']], train['target']]
-            tf_validation = [[validation['input_jets_baseline'], validation['inputs2']], validation['target']]
+            tf_train = [train['input_jets_baseline'], train['target']]
+            tf_validation = [validation['input_jets_baseline'], validation['target']]
         else:
             model = CombinedDeepSetNetwork(deepset_config, feedforward_config)
             tf_train = [[train['inputs'], train['inputs2']], train['target']]
@@ -699,6 +703,8 @@ class SimpleDNN(MLModel):
         # train the model
         logger.info(f"Loss training weights: {self.ml_process_weights.items()}")
         logger.info("Start training...")
+
+        print(model.summary())
         model.fit(
             tf_train[0], tf_train[1],
             validation_data=tf_validation,
@@ -711,16 +717,17 @@ class SimpleDNN(MLModel):
         output.parent.touch()
         model.save(output.path)
 
-        model_deepsets = model.deepset_network
-        model_ff = model.feed_forward_network
+        #model_deepsets = model.deepset_network
+        #model_ff = model.feed_forward_network
 
         # plotting of loss, acc, roc, nodes, confusion for each fold
-        self.instant_evaluate(task, model_deepsets, model_ff, model, self.input_features, self.processes, train, validation, output)
+        self.instant_evaluate(task, model, self.input_features, self.processes, train, validation, output)
 
         write_info_file(output, self.aggregations, self.nodes_deepSets, self.nodes_ff,
             self.n_output_nodes, self.batch_norm_deepSets, self.batch_norm_ff, self.input_features,
             self.process_insts, self.activation_func_deepSets, self.activation_func_ff, self.learningrate,
-            self.empty_overwrite, self.ml_process_weights, self.jet_num_cut, self.ml_process_weights)
+            self.empty_overwrite, self.ml_process_weights, self.jet_num_cut, self.ml_process_weights,
+            self.model_type)
 
     def evaluate(
         self,
