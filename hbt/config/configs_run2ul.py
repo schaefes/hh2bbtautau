@@ -66,6 +66,7 @@ def add_config(
         "graviton_hh_ggf_bbtautau_m400",
         "graviton_hh_ggf_bbtautau_m1250",
         "graviton_hh_vbf_bbtautau_m400",
+        "graviton_hh_vbf_bbtautau_m1250",
     ]
     for process_name in process_names:
         # development switch in case datasets are not _yet_ there
@@ -144,6 +145,7 @@ def add_config(
         "graviton_hh_ggf_bbtautau_m400_madgraph",
         "graviton_hh_ggf_bbtautau_m1250_madgraph",
         "graviton_hh_vbf_bbtautau_m400_madgraph",
+        "graviton_hh_vbf_bbtautau_m1250_madgraph",
     ]
     for dataset_name in dataset_names:
         # development switch in case datasets are not _yet_ there
@@ -158,6 +160,8 @@ def add_config(
             dataset.add_tag(("has_top", "is_ttbar"))
         elif dataset.name.startswith("st"):
             dataset.add_tag(("has_top", "is_single_top"))
+        elif "_vbf_" in dataset.name:
+            dataset.add_tag(("is_vbf", "vbf_prod"))
 
         # apply an optional limit on the number of files
         if limit_dataset_files:
@@ -649,14 +653,13 @@ def add_config(
             "run", "luminosityBlock", "event",
             # object info,
             "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
-            "Jet.E", "nJet", "Jet.area", "Jet.nConstituents", "Jet.jetID",
+            "Jet.E", "Jet.nJet", "Jet.area", "Jet.nConstituents", "Jet.jetID",
             "Jet.hhbtag",
             "HHBJet.pt", "HHBJet.eta", "HHBJet.phi", "HHBJet.mass", "HHBJet.btagDeepFlavB",
             "HHBJet.hadronFlavour", "HHBJet.hhbtag",
             "BJet.pt", "BJet.eta", "BJet.phi", "BJet.mass", "BJet.btagDeepFlavB", "BJet.hadronFlavour",
             "BJet.nJet", "BJet.E", "BJet.area", "BJet.nConstituents", "CollJet.btagDeepFlavB",
-            "CollJet.hadronFlavour", "CollJet.pt", "CollJet.eta", "CollJet.phi", "CollJet.mass",
-            "CollJet.E", "VBFJet.btagDeepFlavB", "VBFJet.hadronFlavour", "VBFJet.pt",
+            "CollJet.hadronFlavour", "CollJet.*", "VBFJet.btagDeepFlavB", "VBFJet.hadronFlavour", "VBFJet.pt",
             "VBFJet.eta", "VBFJet.phi", "VBFJet.mass", "VBFJet.E",
             "NonHHBJet.pt", "NonHHBJet.eta", "NonHHBJet.phi", "NonHHBJet.mass",
             "NonHHBJet.btagDeepFlavB", "NonHHBJet.hadronFlavour", "NonHHBJet.hhbtag",
@@ -671,7 +674,10 @@ def add_config(
             # columns added during selection
             "channel_id", "process_id", "category_ids", "mc_weight", "pdf_weight*", "murmuf_weight*",
             "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
-            "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*",
+            "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*", "nGenPart", "GenPart.*",
+            "isHardProcess", "genBpartonH.*", "genTaupartonH.*", "genHpartonH.*", "genVBFparton.*",
+            "GenJet.*", "genVBFparton_full.*", "GenMatchedBJets.*", "GenMatchedVBFJets.*", "genMatchedGenBJets.*",
+            "genMatchedGenVBFJets.*", "AutoGenMatchedVBFJets.*",
         },
         "cf.MergeSelectionMasks": {
             "normalization_weight", "process_id", "category_ids", "cutflow.*",
