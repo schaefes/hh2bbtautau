@@ -29,10 +29,23 @@ ak = maybe_import("awkward")
 set_ak_column_f32 = functools.partial(set_ak_column, value_type=np.float32)
 
 
+# Helper func to compute invariant mass, delta eta of two objects
+def inv_mass_helper(obj1, obj2):
+    obj_mass = (obj1 + obj2).mass
+
+    return obj_mass
+
+
+def d_eta_helper(obj1, obj2):
+    d_eta = abs(obj1.eta - obj2.eta)
+
+    return d_eta
+
+
 # Invariant Mass Producers
 @producer(
     uses={
-        "Jet.pt", "Jet.nJet", "Jet.eta", "Jet.phi", "Jet.mass",
+        "Jet.pt", "Jet.eta", "Jet.phi", "Jet.mass",
         attach_coffea_behavior,
     },
     produces={
@@ -178,7 +191,7 @@ def dr_inv_mass_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @producer(
     uses={
-        "CollJet.pt", "CollJet.nJet", "CollJet.eta", "CollJet.phi", "CollJet.mass", "CollJet.E",
+        "CollJet.pt", "CollJet.nJet", "CollJet.eta", "CollJet.phi", "CollJet.mass",
         attach_coffea_behavior,
     },
     produces={
@@ -217,7 +230,7 @@ def d_eta_inv_mass_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
 @producer(
     uses={
-        "CollJet.pt", "CollJet.nJet", "CollJet.eta", "CollJet.phi", "CollJet.mass", "CollJet.E",
+        "CollJet.pt", "CollJet.nJet", "CollJet.eta", "CollJet.phi", "CollJet.mass",
         attach_coffea_behavior,
     },
     produces={
@@ -243,7 +256,7 @@ def energy_correlation(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 # Producers for the columns of the kinetmatic variables (four vectors) of the jets, bjets and taus
 @producer(
     uses={
-        "Jet.pt", "Jet.nJet", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.E", "Jet.area",
+        "Jet.pt", "Jet.nJet", "Jet.eta", "Jet.phi", "Jet.mass", "Jet.area",# "Jet.E",
         "Jet.nConstituents", "Jet.jetID", "Jet.btagDeepFlavB", "Jet.hadronFlavour",
         attach_coffea_behavior,
     },
@@ -307,7 +320,7 @@ def kinematic_vars_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 # kinematic vars for coollection of jets and cbf jets
 @producer(
     uses={
-        "CollJet.pt", "CollJet.nJet", "CollJet.eta", "CollJet.phi", "CollJet.mass", "CollJet.E",
+        "CollJet.pt", "CollJet.eta", "CollJet.phi", "CollJet.mass", "CollJet.E",
         "CollJet.btagDeepFlavB", "CollJet.hadronFlavour",
         attach_coffea_behavior,
     },
@@ -315,8 +328,8 @@ def kinematic_vars_jets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         # *[f"{obj}_{var}"
         # for obj in [f"jet{n}" for n in range(1, 7, 1)]
         # for var in ["pt", "eta", "phi", "mass", "e", "btag", "hadronFlavour"]], "nJets", "nConstituents", "jets_pt",
-        "nCollJets", "Colljets_pt", "Colljets_e", "Colljets_eta", "Colljets_phi", "Colljets_mass",
-        "Colljets_btag", "Colljets_hadFlav", "n_jets", "ones_count_ds",
+        "nCollJets", "Colljets_pt", "Colljets_eta", "Colljets_phi", "Colljets_mass",
+        "Colljets_btag", "Colljets_hadFlav", "n_jets", "ones_count_ds", "Colljets_e",
     },
 )
 def kinematic_vars_colljets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -331,28 +344,23 @@ def kinematic_vars_colljets(self: Producer, events: ak.Array, **kwargs) -> ak.Ar
 
     jets_pt = ak.pad_none(events.CollJet.pt, max(n_jets))
     jets_pt = ak.to_regular(jets_pt, axis=1)
-    jets_pt = ak.fill_none(jets_pt, EMPTY_FLOAT)
-    events = set_ak_column_f32(events, "Colljets_pt", jets_pt)
+    jets_pt_filled = ak.fill_none(jets_pt, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "Colljets_pt", jets_pt_filled)
 
     jets_eta = ak.pad_none(events.CollJet.eta, max(n_jets))
     jets_eta = ak.to_regular(jets_eta, axis=1)
-    jets_eta = ak.fill_none(jets_eta, EMPTY_FLOAT)
-    events = set_ak_column_f32(events, "Colljets_eta", jets_eta)
+    jets_eta_filled = ak.fill_none(jets_eta, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "Colljets_eta", jets_eta_filled)
 
     jets_phi = ak.pad_none(events.CollJet.phi, max(n_jets))
     jets_phi = ak.to_regular(jets_phi, axis=1)
-    jets_phi = ak.fill_none(jets_phi, EMPTY_FLOAT)
-    events = set_ak_column_f32(events, "Colljets_phi", jets_phi)
+    jets_phi_filled = ak.fill_none(jets_phi, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "Colljets_phi", jets_phi_filled)
 
     jets_mass = ak.pad_none(events.CollJet.mass, max(n_jets))
     jets_mass = ak.to_regular(jets_mass, axis=1)
-    jets_mass = ak.fill_none(jets_mass, EMPTY_FLOAT)
-    events = set_ak_column_f32(events, "Colljets_mass", jets_mass)
-
-    jets_e = ak.pad_none(events.CollJet.E, max(n_jets))
-    jets_e = ak.to_regular(jets_e, axis=1)
-    jets_e = ak.fill_none(jets_e, EMPTY_FLOAT)
-    events = set_ak_column_f32(events, "Colljets_e", jets_e)
+    jets_mass_filled = ak.fill_none(jets_mass, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "Colljets_mass", jets_mass_filled)
 
     jets_btag = ak.pad_none(events.CollJet.btagDeepFlavB, max(n_jets))
     jets_btag = ak.to_regular(jets_btag, axis=1)
@@ -368,8 +376,94 @@ def kinematic_vars_colljets(self: Producer, events: ak.Array, **kwargs) -> ak.Ar
     ones_count_ds = ak.pad_none(ones_count_ds, max(n_jets))
     ones_count_ds = ak.to_regular(ones_count_ds, axis=1)
     ones_count_ds = ak.fill_none(ones_count_ds, EMPTY_FLOAT)
-
     events = set_ak_column_f32(events, "ones_count_ds", ones_count_ds)
+
+    # Calculate energy
+    p_x = jets_pt * np.cos(jets_phi)
+    p_y = jets_pt * np.sin(jets_phi)
+    p_z = jets_pt * np.sinh(jets_eta)
+    p = np.sqrt(p_x**2 + p_y**2 + p_z**2)
+    jets_e = np.sqrt(jets_mass**2 + p**2)
+    jets_e = ak.fill_none(jets_e, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "Colljets_e", jets_e)
+
+    return events
+
+
+# kinematic vars for coollection of jets and cbf jets
+@producer(
+    uses={
+        "VBFJet.pt", "VBFJet.eta", "VBFJet.phi", "VBFJet.mass",
+        attach_coffea_behavior,
+    },
+    produces={
+        # *[f"{obj}_{var}"
+        # for obj in [f"jet{n}" for n in range(1, 7, 1)]
+        # for var in ["pt", "eta", "phi", "mass", "e", "btag", "hadronFlavour"]], "nJets", "nConstituents", "jets_pt",
+        "VBFjets_pt", "VBFjets_eta", "VBFjets_phi", "VBFjets_mass",
+        "VBFjets_e", "VBFJetsdR", "VBFJetsdEta", "nVBFJets", "VBFjetsInvMass",
+    },
+)
+def kinematic_vars_VBFjets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"VBFJet": {"type_name": "Jet"}}, **kwargs)
+
+    ht = ak.sum(abs(events.VBFJet.pt), axis=1)
+    events = set_ak_column_f32(events, "VBFht", ht)
+
+    jets_pt = ak.pad_none(events.VBFJet.pt, 2)
+    jets_pt = ak.to_regular(jets_pt, axis=1)
+    jets_pt_filled = ak.fill_none(jets_pt, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "VBFjets_pt", jets_pt_filled)
+
+    jets_eta = ak.pad_none(events.VBFJet.eta, 2)
+    jets_eta = ak.to_regular(jets_eta, axis=1)
+    jets_eta_filled = ak.fill_none(jets_eta, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "VBFjets_eta", jets_eta_filled)
+
+    jets_phi = ak.pad_none(events.VBFJet.phi, 2)
+    jets_phi = ak.to_regular(jets_phi, axis=1)
+    jets_phi_filled = ak.fill_none(jets_phi, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "VBFjets_phi", jets_phi_filled)
+
+    jets_mass = ak.pad_none(events.VBFJet.mass, 2)
+    jets_mass = ak.to_regular(jets_mass, axis=1)
+    jets_mass_filled = ak.fill_none(jets_mass, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "VBFjets_mass", jets_mass_filled)
+
+    # Calculate energy
+    p_x = jets_pt * np.cos(jets_phi)
+    p_y = jets_pt * np.sin(jets_phi)
+    p_z = jets_pt * np.sinh(jets_eta)
+    p = np.sqrt(p_x**2 + p_y**2 + p_z**2)
+    jets_e = np.sqrt(jets_mass**2 + p**2)
+    jets_e = ak.fill_none(jets_e, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "VBFjets_e", jets_e)
+
+    # Calculate dR and d Eta
+    # dR
+    events = set_ak_column(events, "VBFJet", ak.pad_none(events.VBFJet, 2))
+    dR_table = events.VBFJet.metric_table(events.VBFJet, axis=1)
+    dR_values = dR_table[:, 0, 1]
+    events = set_ak_column_f32(events, "VBFJetsdR", ak.fill_none(dR_values, EMPTY_FLOAT))
+
+    # dEta
+    d_eta = events.VBFJet.metric_table(events.VBFJet, axis=1, metric=d_eta_helper)
+    d_eta = d_eta[:, 0, 1]
+    events = set_ak_column_f32(events, "VBFJetsdEta", ak.fill_none(d_eta, EMPTY_FLOAT))
+
+    # dR
+    dR = np.sqrt(d_eta**2 + abs(jets_phi[:, 0] - jets_phi[:, 1])**2)
+    events = set_ak_column_f32(events, "VBFJetsdR", ak.fill_none(dR, EMPTY_FLOAT))
+
+    # Calculate Invariant Mass
+    events = set_ak_column(events, "VBFJet", ak.pad_none(events.VBFJet, 2))
+    events = set_ak_column(events, "VBFjetsInvMass", (events.VBFJet[:, 0] + events.VBFJet[:, 1]).mass)
+    events = set_ak_column(events, "VBFjetsInvMass", ak.fill_none(events.VBFjetsInvMass, EMPTY_FLOAT))
+
+    # Number of VBF Jets
+    mask = np.where(jets_pt == None, 1, 0)
+    n_jets = np.sum(mask, axis=1)
+    events = set_ak_column_f32(events, "nVBFJets", n_jets)
 
     return events
 
@@ -408,7 +502,57 @@ def kinematic_vars_bjets(self: Producer, events: ak.Array, **kwargs) -> ak.Array
 
 @producer(
     uses={
-        "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.E",
+        "BJet.pt", "BJet.eta", "BJet.phi", "BJet.mass",
+        attach_coffea_behavior,
+    },
+    produces={
+        "BJetsdR", "BJetsdEta",
+    },
+)
+def dR_bjets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"BJet": {"type_name": "Jet"}}, **kwargs)
+    events = set_ak_column(events, "BJet", ak.pad_none(events.BJet, 2))
+    jets_eta = ak.pad_none(events.BJet.eta, 2)
+    jets_eta = ak.to_regular(jets_eta[:, :2], axis=1)
+    jets_phi = ak.pad_none(events.BJet.phi, 2)
+    jets_phi = ak.to_regular(jets_phi[:, :2], axis=1)
+    d_eta = abs(jets_eta[:, 0] - jets_eta[:, 1])
+    events = set_ak_column_f32(events, "BJetsdEta", ak.fill_none(d_eta, EMPTY_FLOAT))
+    dR = np.sqrt(d_eta**2 + abs(jets_phi[:, 0] - jets_phi[:, 1])**2)
+    events = set_ak_column_f32(events, "BJetsdR", ak.fill_none(dR, EMPTY_FLOAT))
+
+    return events
+
+
+@producer(
+    uses={
+        "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass",
+        attach_coffea_behavior,
+    },
+    produces={
+        "TaudR", "TaudEta",
+    },
+)
+def dR_tau(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections=["Tau"], **kwargs)
+    events = set_ak_column(events, "Tau", ak.pad_none(events.Tau, 2))
+    jets_eta = ak.pad_none(events.Tau.eta, 2)
+    jets_eta = ak.to_regular(jets_eta[:, :2], axis=1)
+    jets_phi = ak.pad_none(events.Tau.phi, 2)
+    jets_phi = ak.to_regular(jets_phi[:, :2], axis=1)
+    d_eta = abs(jets_eta[:, 0] - jets_eta[:, 1])
+    d_eta = ak.fill_none(d_eta, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "TaudEta", d_eta)
+    dR = np.sqrt(d_eta**2 + abs(jets_phi[:, 0] - jets_phi[:, 1])**2)
+    dR = ak.fill_none(dR, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "TaudR", dR)
+
+    return events
+
+
+@producer(
+    uses={
+        "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass",
         "Tau.charge",
         attach_coffea_behavior,
     },
@@ -578,5 +722,320 @@ def tau_information(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     object_type_2 = ak.full_like(padded_mass[:, 1], 3)
     events = set_ak_column_f32(events, "tau1_object_type", ak.fill_none(object_type_1, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "tau2_object_type", ak.fill_none(object_type_2, EMPTY_FLOAT))
+
+    return events
+
+
+# Gen Parton B Producer, invariant mass, mass, pt, eta, phi
+@producer(
+    uses={
+        "genBpartonH.pt", "genBpartonH.eta", "genBpartonH.phi", "genBpartonH.mass",
+        attach_coffea_behavior,
+    },
+    produces={
+        "GenPartBpartonInvMass", "GenPartBparton1Mass", "GenPartBparton1Pt", "GenPartBparton1Eta", "GenPartBparton1Phi",
+        "GenPartBparton2Mass", "GenPartBparton2Pt", "GenPartBparton2Eta", "GenPartBparton2Phi", "GenPartBpartondR",
+        "GenPartBpartondEta", "GenPartBpartondR_1"
+    },
+)
+def genBPartonProducer(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"genBpartonH": {"type_name": "GenParticle", "skip_fields": "*Idx*G"}} , **kwargs)
+
+    # invariant mass of B partons
+    inv_mass_Bpartons = inv_mass_helper(events.genBpartonH[:, 0], events.genBpartonH[:, 1])
+    events = set_ak_column_f32(events, "GenPartBpartonInvMass", ak.fill_none(inv_mass_Bpartons, EMPTY_FLOAT))
+
+    # kinematic information of B partons
+    # B Parton 1
+    Bparton1_mass = events.genBpartonH[:, 0].mass
+    Bparton1_pt = events.genBpartonH[:, 0].pt
+    Bparton1_eta = events.genBpartonH[:, 0].eta
+    Bparton1_phi = events.genBpartonH[:, 0].phi
+
+    events = set_ak_column_f32(events, "GenPartBparton1Mass", ak.fill_none(Bparton1_mass, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartBparton1Pt", ak.fill_none(Bparton1_pt, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartBparton1Eta", ak.fill_none(Bparton1_eta, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartBparton1Phi", ak.fill_none(Bparton1_phi, EMPTY_FLOAT))
+
+    # B Parton 2
+    Bparton2_mass = events.genBpartonH[:, 1].mass
+    Bparton2_pt = events.genBpartonH[:, 1].pt
+    Bparton2_eta = events.genBpartonH[:, 1].eta
+    Bparton2_phi = events.genBpartonH[:, 1].phi
+
+    events = set_ak_column_f32(events, "GenPartBparton2Mass", ak.fill_none(Bparton2_mass, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartBparton2Pt", ak.fill_none(Bparton2_pt, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartBparton2Eta", ak.fill_none(Bparton2_eta, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartBparton2Phi", ak.fill_none(Bparton2_phi, EMPTY_FLOAT))
+
+    # dR
+    dR_table = events.genBpartonH.metric_table(events.genBpartonH, axis=1)
+    dR_values = dR_table[:, 0, 1]
+    events = set_ak_column_f32(events, "GenPartBpartondR", ak.fill_none(dR_values, EMPTY_FLOAT))
+    dR_values_1 = np.sqrt((events.genBpartonH.eta[:,0] - events.genBpartonH.eta[:,1])**2 + (events.genBpartonH.phi[:,0] - events.genBpartonH.phi[:,1])**2)
+    events = set_ak_column_f32(events, "GenPartBpartondR_1", ak.fill_none(dR_values_1, EMPTY_FLOAT))
+
+    # d eta
+    d_eta_table = events.genBpartonH.metric_table(events.genBpartonH, axis=1, metric=d_eta_helper)
+    d_eta_values = d_eta_table[:, 0, 1]
+    events = set_ak_column_f32(events, "GenPartBpartondEta", ak.fill_none(d_eta_values, EMPTY_FLOAT))
+
+    return events
+
+
+# Gen Parton Tau Producer, invariant mass, mass, pt, eta, phi
+@producer(
+    uses={
+        "genTaupartonH.*",
+        attach_coffea_behavior,
+    },
+    produces={
+        "GenPartTaupartonInvMass", "GenPartTauparton1Mass", "GenPartTauparton1Pt", "GenPartTauparton1Eta", "GenPartTauparton1Phi",
+        "GenPartTauparton2Mass", "GenPartTauparton2Pt", "GenPartTauparton2Eta", "GenPartTauparton2Phi", "GenPartTaupartondR",
+        "GenPartTaupartondEta",
+    },
+)
+def genTauPartonProducer(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"genTaupartonH": {"type_name": "GenParticle", "skip_fields": "*Idx*G"}} , **kwargs)
+
+    # invariant mass of Tau partons
+    inv_mass_Taupartons = inv_mass_helper(events.genTaupartonH[:, 0], events.genTaupartonH[:, 1])
+    events = set_ak_column_f32(events, "GenPartTaupartonInvMass", ak.fill_none(inv_mass_Taupartons, EMPTY_FLOAT))
+
+    # kinematic information of Tau partons
+    # Tau Parton 1
+    Tauparton1_mass = events.genTaupartonH[:, 0].mass
+    Tauparton1_pt = events.genTaupartonH[:, 0].pt
+    Tauparton1_eta = events.genTaupartonH[:, 0].eta
+    Tauparton1_phi = events.genTaupartonH[:, 0].phi
+
+    events = set_ak_column_f32(events, "GenPartTauparton1Mass", ak.fill_none(Tauparton1_mass, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartTauparton1Pt", ak.fill_none(Tauparton1_pt, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartTauparton1Eta", ak.fill_none(Tauparton1_eta, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartTauparton1Phi", ak.fill_none(Tauparton1_phi, EMPTY_FLOAT))
+
+    # Tau Parton 2
+    Tauparton2_mass = events.genTaupartonH[:, 1].mass
+    Tauparton2_pt = events.genTaupartonH[:, 1].pt
+    Tauparton2_eta = events.genTaupartonH[:, 1].eta
+    Tauparton2_phi = events.genTaupartonH[:, 1].phi
+
+    events = set_ak_column_f32(events, "GenPartTauparton2Mass", ak.fill_none(Tauparton2_mass, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartTauparton2Pt", ak.fill_none(Tauparton2_pt, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartTauparton2Eta", ak.fill_none(Tauparton2_eta, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartTauparton2Phi", ak.fill_none(Tauparton2_phi, EMPTY_FLOAT))
+
+    # dR
+    dR_table = events.genTaupartonH.metric_table(events.genTaupartonH, axis=1)
+    dR_values = dR_table[:, 0, 1]
+    events = set_ak_column_f32(events, "GenPartTaupartondR", ak.fill_none(dR_values, EMPTY_FLOAT))
+
+    # d eta
+    d_eta_table = events.genTaupartonH.metric_table(events.genTaupartonH, axis=1, metric=d_eta_helper)
+    d_eta_values = d_eta_table[:, 0, 1]
+    events = set_ak_column_f32(events, "GenPartTaupartondEta", ak.fill_none(d_eta_values, EMPTY_FLOAT))
+
+    return events
+
+
+# Gen Parton H Producer, invariant mass, mass, pt, eta, phi
+@producer(
+    uses={
+        "genHpartonH.*",
+        attach_coffea_behavior,
+    },
+    produces={
+        "GenPartHpartonInvMass", "GenPartHparton1Mass", "GenPartHparton1Pt", "GenPartHparton1Eta", "GenPartHparton1Phi",
+        "GenPartHparton2Mass", "GenPartHparton2Pt", "GenPartHparton2Eta", "GenPartHparton2Phi", "GenPartHpartondR",
+        "GenPartHpartondEta", "GenHparton1E", "GenHparton1Gamma", "GenHparton2E", "GenHparton2Gamma", "GenHHGamma", "GenHHE"
+    },
+)
+def genHPartonProducer(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"genHpartonH": {"type_name": "GenParticle", "skip_fields": "*Idx*G"}} , **kwargs)
+    # invariant mass of H partons
+    inv_mass_Hpartons = inv_mass_helper(events.genHpartonH[:, 0], events.genHpartonH[:, 1])
+    events = set_ak_column_f32(events, "GenPartHpartonInvMass", ak.fill_none(inv_mass_Hpartons, EMPTY_FLOAT))
+
+    # kinematic information of H partons
+    # H Parton 1
+    Hparton1_mass = events.genHpartonH[:, 0].mass
+    Hparton1_pt = events.genHpartonH[:, 0].pt
+    Hparton1_eta = events.genHpartonH[:, 0].eta
+    Hparton1_phi = events.genHpartonH[:, 0].phi
+
+    events = set_ak_column_f32(events, "GenPartHparton1Mass", ak.fill_none(Hparton1_mass, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartHparton1Pt", ak.fill_none(Hparton1_pt, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartHparton1Eta", ak.fill_none(Hparton1_eta, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartHparton1Phi", ak.fill_none(Hparton1_phi, EMPTY_FLOAT))
+
+    # H Parton 2
+    Hparton2_mass = events.genHpartonH[:, 1].mass
+    Hparton2_pt = events.genHpartonH[:, 1].pt
+    Hparton2_eta = events.genHpartonH[:, 1].eta
+    Hparton2_phi = events.genHpartonH[:, 1].phi
+
+    events = set_ak_column_f32(events, "GenPartHparton2Mass", ak.fill_none(Hparton2_mass, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartHparton2Pt", ak.fill_none(Hparton2_pt, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartHparton2Eta", ak.fill_none(Hparton2_eta, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartHparton2Phi", ak.fill_none(Hparton2_phi, EMPTY_FLOAT))
+
+    # dR
+    dR_table = events.genHpartonH.metric_table(events.genHpartonH, axis=1)
+    dR_values = dR_table[:, 0, 1]
+    events = set_ak_column_f32(events, "GenPartHpartondR", ak.fill_none(dR_values, EMPTY_FLOAT))
+
+    # d eta
+    d_eta_table = events.genHpartonH.metric_table(events.genHpartonH, axis=1, metric=d_eta_helper)
+    d_eta_values = d_eta_table[:, 0, 1]
+    events = set_ak_column_f32(events, "GenPartHpartondEta", ak.fill_none(d_eta_values, EMPTY_FLOAT))
+
+    # calculate gamma lorentz factor
+    # for daughter Higgs
+    p1_x = Hparton1_pt * np.cos(Hparton1_phi)
+    p1_y = Hparton1_pt * np.sin(Hparton1_phi)
+    p1_z = Hparton1_pt * np.sinh(Hparton1_eta)
+    p1 = np.sqrt(p1_x**2 + p1_y**2 + p1_z**2)
+    Hparton1_e = np.sqrt(Hparton1_mass**2 + p1**2)
+    Hparton1_e = ak.fill_none(Hparton1_e, EMPTY_FLOAT)
+    Hparton1_gamma = Hparton1_e / Hparton1_mass
+    events = set_ak_column_f32(events, "GenHparton1E", Hparton1_e)
+    events = set_ak_column_f32(events, "GenHparton1Gamma", Hparton1_gamma)
+
+    p2_x = Hparton2_pt * np.cos(Hparton2_phi)
+    p2_y = Hparton2_pt * np.sin(Hparton2_phi)
+    p2_z = Hparton2_pt * np.sinh(Hparton2_eta)
+    p2 = np.sqrt(p2_x**2 + p2_y**2 + p2_z**2)
+    Hparton2_e = np.sqrt(Hparton2_mass**2 + p2**2)
+    Hparton2_e = ak.fill_none(Hparton2_e, EMPTY_FLOAT)
+    Hparton2_gamma = Hparton2_e / Hparton2_mass
+    events = set_ak_column_f32(events, "GenHparton2E", Hparton2_e)
+    events = set_ak_column_f32(events, "GenHparton2Gamma", Hparton2_gamma)
+
+    # for mother Higgs
+    pHH = p1 + p2
+    HH_e = np.sqrt(inv_mass_Hpartons**2 + pHH**2)
+    HH_gamma = HH_e / inv_mass_Hpartons
+    events = set_ak_column_f32(events, "GenHHGamma", HH_gamma)
+    events = set_ak_column_f32(events, "GenHHE", HH_e)
+
+    return events
+
+
+# Gen Parton VBF Producer, invariant mass, mass, pt, eta, phi
+@producer(
+    uses={
+        "genVBFparton.*",
+        attach_coffea_behavior,
+    },
+    produces={
+        "GenPartVBFpartonInvMass", "GenPartVBFparton1Mass", "GenPartVBFparton1Pt", "GenPartVBFparton1Eta", "GenPartVBFparton1Phi",
+        "GenPartVBFparton2Mass", "GenPartVBFparton2Pt", "GenPartVBFparton2Eta", "GenPartVBFparton2Phi", "GenPartVBFpartondR",
+        "GenPartVBFpartondEta",# "GenVBFparton1E", "GenVBFparton1Gamma", "GenVBFparton2E", "GenVBFparton2Gamma"
+    },
+)
+def genVBFPartonProducer(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"genVBFparton": {"type_name": "GenParticle", "skip_fields": "*Idx*G"}} , **kwargs)
+    # invariant mass of H partons
+    inv_mass_VBFpartons = inv_mass_helper(events.genVBFparton[:, 0], events.genVBFparton[:, 1])
+    events = set_ak_column_f32(events, "GenPartVBFpartonInvMass", ak.fill_none(inv_mass_VBFpartons, EMPTY_FLOAT))
+
+    # kinematic information of H partons
+    # H Parton 1
+    VBFparton1_mass = events.genVBFparton[:, 0].mass
+    VBFparton1_pt = events.genVBFparton[:, 0].pt
+    VBFparton1_eta = events.genVBFparton[:, 0].eta
+    VBFparton1_phi = events.genVBFparton[:, 0].phi
+
+    events = set_ak_column_f32(events, "GenPartVBFparton1Mass", ak.fill_none(VBFparton1_mass, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartVBFparton1Pt", ak.fill_none(VBFparton1_pt, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartVBFparton1Eta", ak.fill_none(VBFparton1_eta, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartVBFparton1Phi", ak.fill_none(VBFparton1_phi, EMPTY_FLOAT))
+
+    # VBF Parton 2
+    VBFparton2_mass = events.genVBFparton[:, 1].mass
+    VBFparton2_pt = events.genVBFparton[:, 1].pt
+    VBFparton2_eta = events.genVBFparton[:, 1].eta
+    VBFparton2_phi = events.genVBFparton[:, 1].phi
+
+    events = set_ak_column_f32(events, "GenPartVBFparton2Mass", ak.fill_none(VBFparton2_mass, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartVBFparton2Pt", ak.fill_none(VBFparton2_pt, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartVBFparton2Eta", ak.fill_none(VBFparton2_eta, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenPartVBFparton2Phi", ak.fill_none(VBFparton2_phi, EMPTY_FLOAT))
+
+    # dR
+    dR_table = events.genVBFparton.metric_table(events.genVBFparton, axis=1)
+    dR_values = dR_table[:, 0, 1]
+    events = set_ak_column_f32(events, "GenPartVBFpartondR", ak.fill_none(dR_values, EMPTY_FLOAT))
+
+    # d eta
+    d_eta_table = events.genVBFparton.metric_table(events.genVBFparton, axis=1, metric=d_eta_helper)
+    d_eta_values = d_eta_table[:, 0, 1]
+    events = set_ak_column_f32(events, "GenPartVBFpartondEta", ak.fill_none(d_eta_values, EMPTY_FLOAT))
+
+    return events
+
+
+@producer(
+    uses={
+        "BJet.*", "GenMatchedBJets.*", "HHBJet.*",
+        attach_coffea_behavior,
+    },
+    produces={
+        "Btagging_results", "HHBtagging_results",
+    },
+)
+def Btagging_efficiency_Bpartons(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"BJet": {"type_name": "Jet"}}, **kwargs)
+    events = self[attach_coffea_behavior](events, collections={"HHBJet": {"type_name": "Jet"}}, **kwargs)
+    events = self[attach_coffea_behavior](events, collections={"GenMatchedBJets": {"type_name": "Jet"}}, **kwargs)
+    Btagging_results = np.zeros(len(events.GenMatchedBJets.pt[:, 0]))
+    HHBtagging_results = np.zeros(len(events.GenMatchedBJets.pt[:, 0]))
+    for i, _ in enumerate(events.BJet.pt):
+        Btagging_counter = 0
+        HHBtagging_counter = 0
+        for matched_pt in events.GenMatchedBJets.pt[i]:
+            if matched_pt in events.BJet.pt[i]:
+                Btagging_counter += 1
+            if matched_pt in events.HHBJet.pt[i]:
+                HHBtagging_counter += 1
+        Btagging_results[i] = Btagging_counter
+        HHBtagging_results[i] = HHBtagging_counter
+    events = set_ak_column_f32(events, "Btagging_results", ak.fill_none(Btagging_results, 0))
+    events = set_ak_column_f32(events, "HHBtagging_results", ak.fill_none(HHBtagging_results, 0))
+
+    return events
+
+
+@producer(
+    uses={
+        "VBFJet.*", "AutoGenMatchedVBFJets.*", "GenMatchedVBFJets.*",
+        attach_coffea_behavior,
+    },
+    produces={
+        "VBFtagging_results_auto", "VBFtagging_results_dr"
+    },
+)
+def VBFtagging_efficiency(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"VBFJet": {"type_name": "Jet"}}, **kwargs)
+    events = self[attach_coffea_behavior](events, collections={"AutoGenMatchedVBFJets": {"type_name": "Jet"}}, **kwargs)
+    events = self[attach_coffea_behavior](events, collections={"GenMatchedVBFJets": {"type_name": "Jet"}}, **kwargs)
+    # from IPython import embed; embed()
+    VBFtagging_results_auto = np.zeros(len(events.AutoGenMatchedVBFJets.pt[:, 0]))
+    VBFtagging_results_dr = np.zeros(len(events.AutoGenMatchedVBFJets.pt[:, 0]))
+    for i, _ in enumerate(events.VBFJet.pt):
+        VBFtagging_counter_auto = 0
+        VBFtagging_counter_dr = 0
+        if np.size(events.VBFJet.pt[i]) == 0:
+            VBFtagging_counter_auto = -1
+            VBFtagging_counter_dr = -1
+        for matched_pt in events.VBFJet.pt[i]:
+            if matched_pt in events.AutoGenMatchedVBFJets.pt[i]:
+                VBFtagging_counter_auto += 1
+            if matched_pt in events.GenMatchedVBFJets.pt[i]:
+                VBFtagging_counter_dr += 1
+        VBFtagging_results_auto[i] = VBFtagging_counter_auto
+        VBFtagging_results_dr[i] = VBFtagging_counter_dr
+    events = set_ak_column_f32(events, "VBFtagging_results_auto", ak.fill_none(VBFtagging_results_auto, 0))
+    events = set_ak_column_f32(events, "VBFtagging_results_dr", ak.fill_none(VBFtagging_results_dr, 0))
 
     return events
