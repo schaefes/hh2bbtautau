@@ -698,6 +698,7 @@ class SimpleDNN(MLModel):
             "epochs": self.epochs,
             "callbacks": [early_stopping, reduceLR],
             "verbose": 2,
+            "class_weight": self.ml_process_weights,
         }
 
         # train the model
