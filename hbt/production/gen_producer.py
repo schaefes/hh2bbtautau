@@ -253,13 +253,13 @@ def gen_HH_decay_product_VBF_sel(self: Producer, events: ak.Array, genVBFpartonI
 
         mask = ak.fill_none(mask, False)
         mask_VBF_events = (np.sum(mask, axis=1) == 0)
-
         VBF_partons = events.GenPart[genVBFpartonIndices]
 
+        # kinemetaic selection applied to VBF Jets: eta < 4.7 and pt > 30.0 GeV
         mask_row_0_eta = np.where(abs(VBF_partons.eta[:, 0]) < 4.7, True, False)
         mask_row_0_pt = np.where(VBF_partons.pt[:, 0] > 30.0, True, False)
         mask_row_0 = np.logical_and(mask_row_0_pt, mask_row_0_eta)
-        mask_row_1_eta = np.where(abs(VBF_partons.eta[:, 1]), True, False)
+        mask_row_1_eta = np.where(abs(VBF_partons.eta[:, 1]) < 4.7, True, False)
         mask_row_1_pt = np.where(VBF_partons.pt[:, 1] > 30.0, True, False)
         mask_row_1 = np.logical_and(mask_row_1_pt, mask_row_1_eta)
 
@@ -307,11 +307,9 @@ def GenMatchingBJets(self: Producer, events: ak.Array, genBpartonIndices, **kwar
     genBpartonH = events.GenPart[genBpartonIndices]
 
     genmatchedGenBjet_indices = find_genjet_indices(array1=genBpartonH, array2=genBjets)
-    genmatchedBJet_indices = find_genjet_indices(array1=genBjets, array2=events.Jet)
+    genmatchedBJet_indices = find_genjet_indices(array1=genBjets[genmatchedGenBjet_indices], array2=events.Jet)
 
-    selected_genmatchedBJet_indices = genmatchedBJet_indices[np.sort(genmatchedGenBjet_indices, axis=1)]
-
-    return selected_genmatchedBJet_indices, genmatchedGenBjet_indices
+    return genmatchedBJet_indices, genmatchedGenBjet_indices
 
 
 @producer(
@@ -349,9 +347,7 @@ def GenMatchingVBFJets(self: Producer, events: ak.Array, genVBFpartonIndices, **
     genVBFparton = events.GenPart[genVBFpartonIndices]
 
     genmatchedGenVBFjet_indices = find_genjet_indices(array1=genVBFparton, array2=genJets)
-    genmatchedVBFJet_indices = find_genjet_indices(array1=genJets, array2=events.Jet)
-
-    selected_genmatchedVBFJet_indices = genmatchedVBFJet_indices[np.sort(genmatchedGenVBFjet_indices, axis=1)]
+    genmatchedVBFJet_indices = find_genjet_indices(array1=genJets[genmatchedGenVBFjet_indices], array2=events.Jet)
     # End: Matching only through dR criterium
 
     # Matching throgh dR from Parton to Gen Jets and usage of genJetIdx of Jet collection
@@ -364,4 +360,4 @@ def GenMatchingVBFJets(self: Producer, events: ak.Array, genVBFpartonIndices, **
     auto_genmatchedVBFJets_indices = ak.to_regular(auto_genmatchedGenVBFjet_indices)
     # End: Matching dR and genJetIdx.
 
-    return selected_genmatchedVBFJet_indices, genmatchedGenVBFjet_indices, auto_genmatchedVBFJets_indices
+    return genmatchedVBFJet_indices, genmatchedGenVBFjet_indices, auto_genmatchedVBFJets_indices
