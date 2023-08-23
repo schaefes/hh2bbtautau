@@ -677,7 +677,8 @@ def add_config(
             "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*", "nGenPart", "GenPart.*",
             "isHardProcess", "genBpartonH.*", "genTaupartonH.*", "genHpartonH.*", "genVBFparton.*",
             "GenJet.*", "genVBFparton_full.*", "GenMatchedBJets.*", "GenMatchedVBFJets.*", "genMatchedGenBJets.*",
-            "genMatchedGenVBFJets.*", "AutoGenMatchedVBFJets.*",
+            "genMatchedGenVBFJets.*", "AutoGenMatchedVBFJets.*", "nVBFJets", "VBFmask_step.*", "VBFpairs_step.*",
+            "VBFtrigger_step.*", "matchedGenVBFparton.*", "VBFak4_step.*",
         },
         "cf.MergeSelectionMasks": {
             "normalization_weight", "process_id", "category_ids", "cutflow.*",
