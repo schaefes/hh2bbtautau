@@ -17,6 +17,9 @@ from hbt.production.gen_producer import (gen_HH_decay_product_idx_b, gen_HH_deca
     gen_HH_decay_product_idx_H, gen_HH_decay_product_VBF_idx, gen_HH_decay_product_VBF_sel,
     GenMatchingBJets, GenMatchingVBFJets)
 
+from hbt.selection.helper_funcs import (mask_to_indices, get_jet_indices_from_pair_mask,
+    get_unique_rows)
+
 
 np = maybe_import("numpy")
 ak = maybe_import("awkward")
@@ -70,6 +73,7 @@ def jet_selection(
         ((events.Jet.pt >= 50.0) | (events.Jet.puId == (1 if is_2016 else 4))) &  # flipped in 2016
         ak.all(events.Jet.metric_table(lepton_results.x.lepton_pair) > 0.5, axis=2)
     )
+    indices_ak4_step = ak.mask(li, ak4_mask)
 
     # default jets
     default_mask = (
@@ -96,10 +100,11 @@ def jet_selection(
     # vbf jets
     vbf_mask = (
         ak4_mask &
-        (events.Jet.pt > 30.0) &
+        (events.Jet.pt > 30.0) & #default is 30.0
         (abs(events.Jet.eta) < 4.7) &
         (~hhbjet_mask)
     )
+    indices_vbfmask_step = ak.mask(li, vbf_mask)
 
     # build vectors of vbf jets representing all combinations and apply selections
     vbf1, vbf2 = ak.unzip(ak.combinations(events.Jet[vbf_mask], 2, axis=1))
@@ -107,8 +112,20 @@ def jet_selection(
     vbfjj = vbf1 + vbf2
     vbf_pair_mask = (
         (vbfjj.mass > 500.0) & # default is 500
-        (abs(vbf1.eta - vbf2.eta) > 3.0)
+        (abs(vbf1.eta - vbf2.eta) > 3.0) # default is 3.0
     )
+    ### Pair Conditions Step
+    # get the indices to the given invariant mass column
+    vbf_mass_indices = ak.argsort(vbfjj.mass, axis=1, ascending=False)
+    vbf_pairs = vbf_mass_indices[vbf_pair_mask[vbf_mass_indices]]
+    indices_list = []
+    for i in range(max(ak.count(vbf_pairs, axis=1))):
+        vbf_pair_index = vbf_pairs[..., i:i+1]
+        idx_jets = get_jet_indices_from_pair_mask(events.Jet, vbf_mask, li, vbf_pair_index)
+        indices_list.append(idx_jets)
+    indices_vbfpair_step = ak.concatenate(indices_list, axis=1)
+    indices_vbfpair_step = get_unique_rows(indices_vbfpair_step)
+    ###
 
     # extra requirements for events for which only the tau tau vbf cross trigger fired
     cross_vbf_ids = [t.id for t in self.config_inst.x.triggers if t.has_tag("cross_tau_tau_vbf")]
@@ -124,7 +141,6 @@ def jet_selection(
             (ak.min(vbf_pair.pt, axis=2) > 60.0)
         )
     )
-
     # get the index to the pair with the highest pass
     vbf_mass_indices = ak.argsort(vbfjj.mass, axis=1, ascending=False)
     vbf_pair_index = vbf_mass_indices[vbf_pair_mask[vbf_mass_indices]][..., :1]
@@ -140,6 +156,19 @@ def jet_selection(
     )
     vbfjet_indices = li[vbf_mask][vbf_indices_local]
     vbfjet_indices = vbfjet_indices[ak.argsort(events.Jet[vbfjet_indices].pt, axis=1, ascending=False)]
+
+    ### Trigger Step
+    # get the indices to the given invariant mass column
+    vbf_mass_indices = ak.argsort(vbfjj.mass, axis=1, ascending=False)
+    vbf_pairs = vbf_mass_indices[vbf_pair_mask[vbf_mass_indices]]
+    indices_list = []
+    for i in range(max(ak.count(vbf_pairs, axis=1))):
+        vbf_pair_index = vbf_pairs[..., i:i+1]
+        idx_jets = get_jet_indices_from_pair_mask(events.Jet, vbf_mask, li, vbf_pair_index)
+        indices_list.append(idx_jets)
+    indices_vbftrigger_step = ak.concatenate(indices_list, axis=1)
+    indices_vbftrigger_step = get_unique_rows(indices_vbftrigger_step)
+    ###
 
     # check whether the two bjets were matched by fatjet subjets to mark it as boosted
     fatjet_mask = (
@@ -217,16 +246,62 @@ def jet_selection(
     # events = set_ak_column(events, "genVBFparton", events.GenPart[genVBFpartonIdx])
     genMatchingBJets_indices, genMatchingGenBJets_indices = self[GenMatchingBJets](events, genBpartonHidx, **kwargs)
     genMatchingVBFJets_indices, genMatchingGenVBFJets_indices, auto_genMatchingVBFJets_indices = self[GenMatchingVBFJets](events, genVBFpartonIdx, **kwargs)
-    from IPython import embed; embed()
+
+    # partons that can be matched to a reco jet
+    mask_partons = ~ak.is_none(auto_genMatchingVBFJets_indices, axis=1)
+    matchedGenVBFpartonIdx = ak.mask(genVBFpartonIdx, mask_partons)
 
     if self.dataset_inst.has_tag("is_vbf"): # and self.get("dataset_inst", False):
         VBF_sel = self[gen_HH_decay_product_VBF_sel](events, genVBFpartonIdx, True, **kwargs)
         # If VBF is considered, fuse VBF_sel and jet_sel using logical and, excludes VHH events
         jet_sel = np.logical_and(jet_sel, VBF_sel)
-
     # store some columns
     events = set_ak_column(events, "Jet.hhbtag", hhbtag_scores)
     # build and return selection results plus new columns (src -> dst -> indices)
+    object_dict = {
+        "Jet": {
+            "Jet": jet_indices,
+            "BJet": bjet_indices,
+            "HHBJet": hhbjet_indices,
+            "NonHHBJet": non_hhbjet_indices,
+            "SubJet1": subjet_indices[..., 0],
+            "SubJet2": subjet_indices[..., 1],
+            "VBFJet": vbfjet_indices,
+            "CollJet": colljet_indices,
+            "GenMatchedBJets": genMatchingBJets_indices,
+            "VBFak4_step": indices_ak4_step,
+            "VBFmask_step": indices_vbfmask_step,
+            "VBFpairs_step": indices_vbfpair_step,
+            "VBFtrigger_step": indices_vbftrigger_step,
+        },
+        "FatJet": {
+            "FatJet": fatjet_indices,
+        },
+        "GenPart": {
+            "genBpartonH": genBpartonHidx,
+            "genTaupartonH": genTaupartonHidx,
+            "genHpartonH": genHpartonidx,
+
+        },
+        "GenJet": {
+            "genMatchedGenBJets": genMatchingGenBJets_indices,
+
+        }
+    }
+
+    if self.dataset_inst.has_tag("is_vbf"):
+        object_dict["Jet"].update({
+            "GenMatchedVBFJets": genMatchingVBFJets_indices,
+            "AutoGenMatchedVBFJets": auto_genMatchingVBFJets_indices,
+            }
+        )
+        object_dict["GenPart"].update({
+            "genVBFparton": genVBFpartonIdx,
+            "matchedGenVBFparton": matchedGenVBFpartonIdx,
+        })
+        object_dict["GenJet"].update({
+            "genMatchedGenVBFJets": genMatchingGenVBFJets_indices,
+        })
     return events, SelectionResult(
         steps={
             "jet": jet_sel,
@@ -235,34 +310,7 @@ def jet_selection(
             # note: there is currently no b-tag discriminant cut at this point, so take jet_sel
             "bjet": jet_sel,
         },
-        objects={
-            "Jet": {
-                "Jet": jet_indices,
-                "BJet": bjet_indices,
-                "HHBJet": hhbjet_indices,
-                "NonHHBJet": non_hhbjet_indices,
-                "SubJet1": subjet_indices[..., 0],
-                "SubJet2": subjet_indices[..., 1],
-                "VBFJet": vbfjet_indices,
-                "CollJet": colljet_indices,
-                "GenMatchedBJets": genMatchingBJets_indices,
-                "GenMatchedVBFJets": genMatchingVBFJets_indices,
-                "AutoGenMatchedVBFJets": auto_genMatchingVBFJets_indices,
-            },
-            "FatJet": {
-                "FatJet": fatjet_indices,
-            },
-            "GenPart": {
-                "genBpartonH": genBpartonHidx,
-                "genTaupartonH": genTaupartonHidx,
-                "genHpartonH": genHpartonidx,
-                "genVBFparton": genVBFpartonIdx,
-            },
-            "GenJet": {
-                "genMatchedGenBJets": genMatchingGenBJets_indices,
-                "genMatchedGenVBFJets": genMatchingGenVBFJets_indices,
-            }
-        },
+        objects=object_dict,
         aux={
             # jet mask that lead to the jet_indices
             "jet_mask": default_mask,
