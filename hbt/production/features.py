@@ -45,7 +45,10 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     uses={
         mc_weight, category_ids,
         # nano columns
-        "Jet.pt", "Jet.eta", "Jet.phi",
+        "Jet.pt", "Jet.eta", "Jet.phi", "Tau.pt", "Tau.eta", "Muon.pt", "Muon.eta",
+        "Electron.pt", "Electron.eta", "Tau.idDeepTau2017v2p1VSjet",
+        "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSe", "Tau.dz", "Electron.dz",
+        "Electron.dxy", "Muon.dz", "Muon.dxy",
     },
     produces={
         mc_weight, category_ids,
@@ -53,6 +56,10 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         "cutflow.n_jet", "cutflow.n_jet_selected", "cutflow.ht", "cutflow.jet1_pt",
         "cutflow.jet1_eta", "cutflow.jet1_phi", "cutflow.jet2_pt", "cutflow.jet2_eta",
         "cutflow.jet3_pt", "cutflow.jet4_pt", "cutflow.jet5_pt", "cutflow.jet6_pt",
+        "cutflow.e1_pt", "cutflow.e1_eta", "cutflow.mu1_pt", "cutflow.mu1_eta",
+        "cutflow.tau1_pt", "cutflow.tau1_eta", "cutflow.tau1_deepTauJet",
+        "cutflow.tau1_deepTauMu", "cutflow.tau1_deepTauE", "cutflow.tau1_dz",
+        "cutflow.e1_dz", "cutflow.e1_dxy", "cutflow.mu1_dz", "cutflow.mu1_dxy",
     },
 )
 def cutflow_features(
@@ -82,5 +89,19 @@ def cutflow_features(
     events = set_ak_column_f32(events, "cutflow.jet4_pt", Route("Jet.pt[:,3]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "cutflow.jet5_pt", Route("Jet.pt[:,4]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "cutflow.jet6_pt", Route("Jet.pt[:,5]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.e1_pt", Route("Electron.pt[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.e1_eta", Route("Electron.eta[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.mu1_pt", Route("Muon.pt[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.mu1_eta", Route("Muon.eta[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.tau1_pt", Route("Tau.pt[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.tau1_eta", Route("Tau.eta[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.tau1_deepTauE", Route("Tau.idDeepTau2017v2p1VSe[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.tau1_deepTauMu", Route("Tau.idDeepTau2017v2p1VSmu[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.tau1_deepTauJet", Route("Tau.idDeepTau2017v2p1VSjet[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.tau1_dz", Route("Tau.dz[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.e1_dz", Route("Electron.dz[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.e1_dxy", Route("Electron.dxy[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.mu1_dz", Route("Muon.dz[:,0]").apply(events, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "cutflow.mu1_dxy", Route("Muon.dxy[:,0]").apply(events, EMPTY_FLOAT))
 
     return events

@@ -1174,16 +1174,18 @@ def VBFsteps_analysis(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     genMatchedJets_inv_mass_pairs = (ak.mask(events.AutoGenMatchedVBFJets, pairs_mask)[:, 0] + ak.mask(events.AutoGenMatchedVBFJets, pairs_mask)[:, 1]).mass
     genMatchedJets_dEta_pairs = abs(ak.mask(events.AutoGenMatchedVBFJets, pairs_mask)[:, 0].eta - ak.mask(events.AutoGenMatchedVBFJets, pairs_mask)[:, 1].eta)
+    mask_pairs = ak.fill_none(((genMatchedJets_inv_mass_pairs > 500.0) & (genMatchedJets_dEta_pairs > 3.0)), False)
 
     genMatchedJets_inv_mass_trigger = (ak.mask(events.AutoGenMatchedVBFJets, trigger_mask)[:, 0] + ak.mask(events.AutoGenMatchedVBFJets, trigger_mask)[:, 1]).mass
     genMatchedJets_dEta_trigger = abs(ak.mask(events.AutoGenMatchedVBFJets, trigger_mask)[:, 0].eta - ak.mask(events.AutoGenMatchedVBFJets, trigger_mask)[:, 1].eta)
+    mask_trigger = ak.fill_none(((genMatchedJets_inv_mass_trigger > 500.0) & (genMatchedJets_dEta_trigger > 3.0)), False)
 
     # Corresponing Partons
-    vbfpartons_inv_mass_ak4 = (ak.mask(events.genVBFparton, ak4_mask)[:, 0] + ak.mask(events.genVBFparton, ak4_mask)[:, 1]).mass
-    vbfpartons_dEta_ak4 = abs(ak.mask(events.genVBFparton, ak4_mask)[:, 0].eta - ak.mask(events.genVBFparton, ak4_mask)[:, 1].eta)
+    vbfpartons_inv_mass_ak4 = (events.genVBFparton[:, 0] + events.genVBFparton[:, 1]).mass
+    vbfpartons_dEta_ak4 = abs(events.genVBFparton[:, 0].eta - events.genVBFparton[:, 1].eta)
 
-    vbfpartons_inv_mass_mask = (ak.mask(events.genVBFparton, vbfmask_mask)[:, 0] + ak.mask(events.genVBFparton, vbfmask_mask)[:, 1]).mass
-    vbfpartons_dEta_mask = abs(ak.mask(events.genVBFparton, vbfmask_mask)[:, 0].eta - ak.mask(events.genVBFparton, vbfmask_mask)[:, 1].eta)
+    vbfpartons_inv_mass_mask = (events.genVBFparton[:, 0] + events.genVBFparton[:, 1]).mass
+    vbfpartons_dEta_mask = abs(events.genVBFparton[:, 0].eta - events.genVBFparton[:, 1].eta)
 
     vbfpartons_inv_mass_pairs = (ak.mask(events.genVBFparton, pairs_mask)[:, 0] + ak.mask(events.genVBFparton, pairs_mask)[:, 1]).mass
     vbfpartons_dEta_pairs = abs(ak.mask(events.genVBFparton, pairs_mask)[:, 0].eta - ak.mask(events.genVBFparton, pairs_mask)[:, 1].eta)
@@ -1217,19 +1219,19 @@ def VBFsteps_analysis(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_f32(events, "GenMatchedVBFJets_ak4_dEta", ak.fill_none(genMatchedJets_dEta_ak4, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "GenMatchedVBFJets_mask_inv_mass", ak.fill_none(genMatchedJets_inv_mass_mask, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "GenMatchedVBFJets_mask_dEta", ak.fill_none(genMatchedJets_dEta_mask, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "GenMatchedVBFJets_pairs_inv_mass", ak.fill_none(genMatchedJets_inv_mass_pairs, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "GenMatchedVBFJets_pairs_dEta", ak.fill_none(genMatchedJets_dEta_pairs, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "GenMatchedVBFJets_trigger_inv_mass", ak.fill_none(genMatchedJets_inv_mass_trigger, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "GenMatchedVBFJets_trigger_dEta", ak.fill_none(genMatchedJets_dEta_trigger, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenMatchedVBFJets_pairs_inv_mass", ak.fill_none(ak.mask(genMatchedJets_inv_mass_pairs, mask_pairs), EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenMatchedVBFJets_pairs_dEta", ak.fill_none(ak.mask(genMatchedJets_dEta_pairs, mask_pairs), EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenMatchedVBFJets_trigger_inv_mass", ak.fill_none(ak.mask(genMatchedJets_inv_mass_trigger, mask_trigger), EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenMatchedVBFJets_trigger_dEta", ak.fill_none(ak.mask(genMatchedJets_dEta_trigger, mask_trigger), EMPTY_FLOAT))
 
     events = set_ak_column_f32(events, "GenVBFPartons_ak4_inv_mass", ak.fill_none(vbfpartons_inv_mass_ak4, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "GenVBFPartons_ak4_dEta", ak.fill_none(vbfpartons_dEta_ak4, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "GenVBFPartons_mask_inv_mass", ak.fill_none(vbfpartons_inv_mass_mask, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "GenVBFPartons_mask_dEta", ak.fill_none(vbfpartons_dEta_mask, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "GenVBFPartons_pairs_inv_mass", ak.fill_none(vbfpartons_inv_mass_pairs, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "GenVBFPartons_pairs_dEta", ak.fill_none(vbfpartons_dEta_pairs, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "GenVBFPartons_trigger_inv_mass", ak.fill_none(vbfpartons_inv_mass_trigger, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "GenVBFPartons_trigger_dEta", ak.fill_none(vbfpartons_dEta_trigger, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenVBFPartons_pairs_inv_mass", ak.fill_none(ak.mask(vbfpartons_inv_mass_pairs, mask_pairs), EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenVBFPartons_pairs_dEta", ak.fill_none(ak.mask(vbfpartons_dEta_pairs, mask_pairs), EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenVBFPartons_trigger_inv_mass", ak.fill_none(ak.mask(vbfpartons_inv_mass_trigger, mask_trigger), EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "GenVBFPartons_trigger_dEta", ak.fill_none(ak.mask(vbfpartons_dEta_trigger, mask_trigger), EMPTY_FLOAT))
 
     return events
 
@@ -1313,31 +1315,35 @@ def VBFCandidatesInvMassdEta(self: Producer, events: ak.Array, **kwargs) -> ak.A
     events = set_ak_column(events, "VBFpairs_step", ak.pad_none(events.VBFpairs_step, 2))
     events = set_ak_column(events, "VBFtrigger_step", ak.pad_none(events.VBFtrigger_step, 2))
 
-    # Get pt and eta of first Jet
-    events = set_ak_column_f32(events, "Jets_ak4_pt", ak.fill_none(events.VBFak4_step[:, 0].pt, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "Jets_ak4_eta", ak.fill_none(events.VBFak4_step[:, 0].eta, EMPTY_FLOAT))
+    # Get pt and eta of highest pt Jet left after each sel step
+    ak4_sort = ak.argsort(events.VBFak4_step.pt, axis=1, ascending=False)
+    events = set_ak_column_f32(events, "Jets_ak4_pt", ak.fill_none(events.VBFak4_step.pt[ak4_sort][:, 0], EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "Jets_ak4_eta", ak.fill_none(events.VBFak4_step.eta[ak4_sort][:, 0], EMPTY_FLOAT))
 
-    events = set_ak_column_f32(events, "Jets_mask_pt", ak.fill_none(events.VBFmask_step[:, 0].pt, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "Jets_mask_eta", ak.fill_none(events.VBFmask_step[:, 0].eta, EMPTY_FLOAT))
+    vbfmask_sort = ak.argsort(events.VBFmask_step.pt, axis=1, ascending=False)
+    events = set_ak_column_f32(events, "Jets_mask_pt", ak.fill_none(events.VBFmask_step.pt[vbfmask_sort][:, 0], EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "Jets_mask_eta", ak.fill_none(events.VBFmask_step.eta[vbfmask_sort][:, 0], EMPTY_FLOAT))
 
-    events = set_ak_column_f32(events, "Jets_pairs_pt", ak.fill_none(events.VBFpairs_step[:, 0].pt, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "Jets_pairs_eta", ak.fill_none(events.VBFpairs_step[:, 0].eta, EMPTY_FLOAT))
+    pairs_sort = ak.argsort(events.VBFpairs_step.pt, axis=1, ascending=False)
+    events = set_ak_column_f32(events, "Jets_pairs_pt", ak.fill_none(events.VBFpairs_step.pt[pairs_sort][:, 0], EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "Jets_pairs_eta", ak.fill_none(events.VBFpairs_step.eta[pairs_sort][:, 0], EMPTY_FLOAT))
 
-    events = set_ak_column_f32(events, "Jets_trigger_pt", ak.fill_none(events.VBFtrigger_step[:, 0].pt, EMPTY_FLOAT))
-    events = set_ak_column_f32(events, "Jets_trigger_eta", ak.fill_none(events.VBFtrigger_step[:, 0].eta, EMPTY_FLOAT))
+    trigger_sort = ak.argsort(events.VBFtrigger_step.pt, axis=1, ascending=False)
+    events = set_ak_column_f32(events, "Jets_trigger_pt", ak.fill_none(events.VBFtrigger_step.pt[trigger_sort][:, 0], EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "Jets_trigger_eta", ak.fill_none(events.VBFtrigger_step.eta[trigger_sort][:, 0], EMPTY_FLOAT))
 
     # Calculate the (max) invariant mass and corresponding delta eta at each step
     jets_inv_mass_ak4 = (events.VBFak4_step[:, 0] + events.VBFak4_step[:, 1]).mass
-    jets_dEta_ak4 = abs((events.VBFak4_step[:, 0] - events.VBFak4_step[:, 1]).eta)
+    jets_dEta_ak4 = abs(events.VBFak4_step[:, 0].eta - events.VBFak4_step[:, 1].eta)
 
     jets_inv_mass_mask = (events.VBFmask_step[:, 0] + events.VBFmask_step[:, 1]).mass
-    jets_dEta_mask = abs((events.VBFmask_step[:, 0] - events.VBFmask_step[:, 1]).eta)
+    jets_dEta_mask = abs(events.VBFmask_step[:, 0].eta - events.VBFmask_step[:, 1].eta)
 
     jets_inv_mass_pairs = (events.VBFpairs_step[:, 0] + events.VBFpairs_step[:, 1]).mass
-    jets_dEta_pairs = abs((events.VBFpairs_step[:, 0] - events.VBFpairs_step[:, 1]).eta)
+    jets_dEta_pairs = abs(events.VBFpairs_step[:, 0].eta - events.VBFpairs_step[:, 1].eta)
 
     jets_inv_mass_trigger = (events.VBFtrigger_step[:, 0] + events.VBFtrigger_step[:, 1]).mass
-    jets_dEta_trigger = abs((events.VBFtrigger_step[:, 0] - events.VBFtrigger_step[:, 1]).eta)
+    jets_dEta_trigger = abs(events.VBFtrigger_step[:, 0].eta - events.VBFtrigger_step[:, 1].eta)
 
     events = set_ak_column_f32(events, "Jets_inv_mass_ak4_step", ak.fill_none(jets_inv_mass_ak4, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "Jets_dEta_ak4_step", ak.fill_none(jets_dEta_ak4, EMPTY_FLOAT))

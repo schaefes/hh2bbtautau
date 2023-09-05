@@ -85,6 +85,7 @@ def gen_HH_decay_product_idx_b(self: Producer, events: ak.Array, **kwargs) -> ak
         # nano columns
         "event",
         "GenPart.*",
+        "Tau.*"
     },
     sandbox=dev_sandbox("bash::$HBT_BASE/sandboxes/venv_columnar.sh"),
 )
