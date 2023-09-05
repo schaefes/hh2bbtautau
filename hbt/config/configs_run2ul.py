@@ -203,7 +203,7 @@ def add_config(
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
-        "default": ["met_filter", "trigger", "lepton", "jet", "bjet"],
+        "default": ["met_filter", "trigger", "lepton_no_veto", "lepton", "jet", "bjet"],
     }
 
     # custom method and sandbox for determining dataset lfns
@@ -666,19 +666,16 @@ def add_config(
             "Electron.pt", "Electron.eta", "Electron.phi", "Electron.mass", "Electron.deltaEtaSC",
             "Electron.pfRelIso03_all",
             "Muon.pt", "Muon.eta", "Muon.phi", "Muon.mass", "Muon.pfRelIso04_all",
-            "Tau.pt", "Tau.eta", "Tau.phi", "Tau.mass", "Tau.E", "Tau.charge",
-            "Tau.idDeepTau2017v2p1VSe", "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSjet",
-            "Tau.genPartFlav", "Tau.decayMode",
-            "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
+            "Tau.*", "MET.pt", "MET.phi", "MET.significance", "MET.covXX", "MET.covXY", "MET.covYY",
             "PV.npvs",
             # columns added during selection
-            "channel_id", "process_id", "category_ids", "mc_weight", "pdf_weight*", "murmuf_weight*",
+            "channel_id", "channel_id_no_veto", "process_id", "category_ids", "mc_weight", "pdf_weight*", "murmuf_weight*",
             "leptons_os", "tau2_isolated", "single_triggered", "cross_triggered",
             "deterministic_seed", "pu_weight*", "btag_weight*", "cutflow.*", "nGenPart", "GenPart.*",
             "isHardProcess", "genBpartonH.*", "genTaupartonH.*", "genHpartonH.*", "genVBFparton.*",
             "GenJet.*", "genVBFparton_full.*", "GenMatchedBJets.*", "GenMatchedVBFJets.*", "genMatchedGenBJets.*",
             "genMatchedGenVBFJets.*", "AutoGenMatchedVBFJets.*", "nVBFJets", "VBFmask_step.*", "VBFpairs_step.*",
-            "VBFtrigger_step.*", "matchedGenVBFparton.*", "VBFak4_step.*",
+            "VBFtrigger_step.*", "matchedGenVBFparton.*", "VBFak4_step.*", "VBFMaskJets.*", "CustomVBFMaskJets.*",
         },
         "cf.MergeSelectionMasks": {
             "normalization_weight", "process_id", "category_ids", "cutflow.*",
