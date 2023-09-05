@@ -97,6 +97,7 @@ def jet_selection(
     )
     hhbjet_indices = score_indices[valid_score_mask[score_indices]][..., :2]
 
+
     # vbf jets
     vbf_mask = (
         ak4_mask &

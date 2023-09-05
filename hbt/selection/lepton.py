@@ -426,6 +426,7 @@ def lepton_selection(
             call_force=True,
             **kwargs,
         )
+
         # lepton pair selecton per trigger via lepton counting
         if trigger.has_tag({"single_e", "cross_e_tau"}):
             # expect 1 electron, 1 veto electron (the same one), 0 veto muons, and at least one tau
