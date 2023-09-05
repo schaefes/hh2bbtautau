@@ -104,7 +104,15 @@ def jet_selection(
         (abs(events.Jet.eta) < 4.7) &
         (~hhbjet_mask)
     )
+    custom_vbf_mask = (
+        ak4_mask &
+        (events.Jet.pt > 30.0) & #default is 30.0
+        (abs(events.Jet.eta) < 4.7) &
+        (abs(events.Jet.eta) > 1.0)
+    )
     indices_vbfmask_step = ak.mask(li, vbf_mask)
+    indices_vbfmask = ak.mask(li, vbf_mask)
+    indices_custom_vbfmask = ak.mask(li, custom_vbf_mask)
 
     # build vectors of vbf jets representing all combinations and apply selections
     vbf1, vbf2 = ak.unzip(ak.combinations(events.Jet[vbf_mask], 2, axis=1))
@@ -223,10 +231,18 @@ def jet_selection(
     # GenVBF_sel = self[gen_HH_decay_product_VBF](events, **kwargs)[0]
 
     colljet_indices = ak.concatenate((jet_indices, vbfjet_indices), axis=1)
+    vbfmask_indices = ak.concatenate((jet_indices, indices_vbfmask), axis=1)
+    custom_vbfmask_indices = ak.concatenate((jet_indices, indices_custom_vbfmask), axis=1)
     unique_colljet_indices = []
-    for i in colljet_indices:
-        unique_colljet_indices.append(np.unique(i))
+    unique_vbfmask_indices = []
+    unique_custom_vbfmask_indices = []
+    for (coll_idx, vbfmask_idx, custom_vbfmask_idx) in zip(colljet_indices, vbfmask_indices, custom_vbfmask_indices):
+        unique_colljet_indices.append(np.unique(coll_idx))
+        unique_vbfmask_indices.append(np.unique(vbfmask_idx))
+        unique_custom_vbfmask_indices.append(np.unique(custom_vbfmask_idx))
     colljet_indices = ak.Array(unique_colljet_indices)
+    vbfmask_indices = ak.Array(unique_vbfmask_indices)
+    custom_vbfmask_indices = ak.Array(unique_custom_vbfmask_indices)
 
     # some final type conversions
     jet_indices = ak.values_astype(ak.fill_none(jet_indices, 0), np.int32)
@@ -252,7 +268,7 @@ def jet_selection(
     matchedGenVBFpartonIdx = ak.mask(genVBFpartonIdx, mask_partons)
 
     if self.dataset_inst.has_tag("is_vbf"): # and self.get("dataset_inst", False):
-        VBF_sel = self[gen_HH_decay_product_VBF_sel](events, genVBFpartonIdx, True, **kwargs)
+        VBF_sel = self[gen_HH_decay_product_VBF_sel](events, genVBFpartonIdx, False, **kwargs)
         # If VBF is considered, fuse VBF_sel and jet_sel using logical and, excludes VHH events
         jet_sel = np.logical_and(jet_sel, VBF_sel)
     # store some columns
@@ -268,6 +284,8 @@ def jet_selection(
             "SubJet2": subjet_indices[..., 1],
             "VBFJet": vbfjet_indices,
             "CollJet": colljet_indices,
+            "VBFMaskJets": vbfmask_indices,
+            "CustomVBFMaskJets": custom_vbfmask_indices,
             "GenMatchedBJets": genMatchingBJets_indices,
             "VBFak4_step": indices_ak4_step,
             "VBFmask_step": indices_vbfmask_step,
