@@ -438,9 +438,9 @@ class SimpleDNN(MLModel):
 
                 # get number or events per process
                 try:
-                    custom_proc_weights[proc_name].extend({len(events_new[events_new.fields[0]])})
+                    custom_proc_weights[this_proc_idx].extend({len(events_new[events_new.fields[0]])})
                 except:
-                    custom_proc_weights[proc_name] = [len(events_new[events_new.fields[0]])]
+                    custom_proc_weights[this_proc_idx] = [len(events_new[events_new.fields[0]])]
 
                 # reshape raw inputs
                 events = reshape_raw_inputs1(events, self.n_features, self.input_features[0])
@@ -481,7 +481,8 @@ class SimpleDNN(MLModel):
         # set the weights used for training of the model
         if self.quantity_weighting:
             max_val = np.max([sum(list_vals) for list_vals in custom_proc_weights.values()])
-            for proc in self.ml_process_weights.keys():
+            self.ml_process_weights = {}
+            for proc in custom_proc_weights.keys():
                 self.ml_process_weights[proc] = max_val / sum(custom_proc_weights[proc])
 
         # shuffle events and split into train and validation fold
@@ -705,7 +706,6 @@ class SimpleDNN(MLModel):
         logger.info(f"Loss training weights: {self.ml_process_weights.items()}")
         logger.info("Start training...")
 
-        print(model.summary())
         model.fit(
             tf_train[0], tf_train[1],
             validation_data=tf_validation,

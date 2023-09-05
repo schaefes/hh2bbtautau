@@ -12,18 +12,21 @@ processes = [
     "graviton_hh_ggf_bbtautau_m400",
     "hh_ggf_bbtautau",
     "graviton_hh_vbf_bbtautau_m400",
+    "graviton_hh_ggf_bbtautau_m1250",
 ]
 
 ml_process_weights = {
     "graviton_hh_ggf_bbtautau_m400": 1.5,
     "hh_ggf_bbtautau": 1,
     "graviton_hh_vbf_bbtautau_m400": 1,
+    "graviton_hh_ggf_bbtautau_m1250": 1,
 }
 
 dataset_names = {
     "graviton_hh_ggf_bbtautau_m400_madgraph",
     "hh_ggf_bbtautau_madgraph",
     "graviton_hh_vbf_bbtautau_m400_madgraph",
+    "graviton_hh_ggf_bbtautau_m1250_madgraph",
 }
 
 # feature_list = ["pt", "eta", "phi", "mass", "e", "btag", "hadronFlavour"]
@@ -90,7 +93,7 @@ default_dnn = SimpleDNN.derive("default", cls_dict=default_cls_dict)
 
 # test model settings
 cls_dict = default_cls_dict
-cls_dict["model_name"] = f"{len(processes)}classes_test"
+cls_dict["model_name"] = f"{len(processes)}classes_baseline"
 cls_dict["nodes_deepSets"] = nodes_deepSets
 cls_dict["nodes_ff"] = nodes_ff
 cls_dict["activation_func_deepSets"] = ["selu" for i in range(len(nodes_deepSets))]
