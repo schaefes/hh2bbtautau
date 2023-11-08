@@ -676,6 +676,13 @@ def add_config(
             "GenJet.*", "genVBFparton_full.*", "GenMatchedBJets.*", "GenMatchedVBFJets.*", "genMatchedGenBJets.*",
             "genMatchedGenVBFJets.*", "AutoGenMatchedVBFJets.*", "nVBFJets", "VBFmask_step.*", "VBFpairs_step.*",
             "VBFtrigger_step.*", "matchedGenVBFparton.*", "VBFak4_step.*", "VBFMaskJets.*", "CustomVBFMaskJets.*",
+            "genTaupartonHE.*", "genTaupartonHMu.*", "genTaupartonHHad.*", "AutoGenMatchedVBFJets.eta",
+            "CustomVBFMaskJets2.*", "CustomVBFMaskJets2.pt", "CustomVBFMaskJets2.eta", "CustomVBFMaskJets2.phi", "CustomVBFMaskJets2.mass",
+            "CustomVBFMaskJets2.btagDeepFlavB", "CustomVBFMaskJets2.hadronFlavour",
+            "CustomVBFMaskJets2.btagDeepFlavCvL", "CustomVBFMaskJets2.btagDeepFlavQG",
+            "CustomVBFMaskJets2.nConstituents", "MET.*", "CustomVBFMaskJets2.btagDeepCvB",
+            "CustomVBFMaskJets2.btagDeepFlavCvB", "CustomVBFMaskJets2.btagDeepCvL",
+            "CustomVBFMaskJets2.btagDeepB",
         },
         "cf.MergeSelectionMasks": {
             "normalization_weight", "process_id", "category_ids", "cutflow.*",

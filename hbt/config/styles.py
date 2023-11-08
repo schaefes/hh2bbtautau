@@ -31,3 +31,5 @@ def stylize_processes(config: od.Config) -> None:
 
     if config.has_process("qcd"):
         config.processes.n.qcd.color1 = (242, 149, 99)
+
+    config.cms_label = "Private work in progress"

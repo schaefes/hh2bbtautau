@@ -57,7 +57,7 @@ def add_categories(config: od.Config) -> None:
         name="no_kin_selections_vbfmask",
         id=5,
         selection="sel_incl",
-        label="VBF Mask Sel.",
+        label="VBF Mask\nSel.",
     )
     add_category(
         config,
@@ -158,6 +158,41 @@ def add_categories(config: od.Config) -> None:
         id=19,
         selection="sel_incl",
         label="Combined Cuts\nV2",
+    )
+    add_category(
+        config,
+        name="had_tau_parton",
+        id=20,
+        selection="sel_incl",
+        label="Hadronic Decay",
+    )
+    add_category(
+        config,
+        name="e_tau_parton",
+        id=21,
+        selection="sel_incl",
+        label="Decay to e",
+    )
+    add_category(
+        config,
+        name="mu_tau_parton",
+        id=22,
+        selection="sel_incl",
+        label=r"Decay to $\mu$",
+    )
+    add_category(
+        config,
+        name="all_tau_partons_channel",
+        id=23,
+        selection="sel_incl",
+        label=r"All decay channels",
+    )
+    add_category(
+        config,
+        name="CustomVBFMask",
+        id=24,
+        selection="sel_incl",
+        label="Custom\nVBF Mask",
     )
 
 def add_categories_ml(config, ml_model_inst):

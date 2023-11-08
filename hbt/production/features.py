@@ -48,7 +48,8 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         "Jet.pt", "Jet.eta", "Jet.phi", "Tau.pt", "Tau.eta", "Muon.pt", "Muon.eta",
         "Electron.pt", "Electron.eta", "Tau.idDeepTau2017v2p1VSjet",
         "Tau.idDeepTau2017v2p1VSmu", "Tau.idDeepTau2017v2p1VSe", "Tau.dz", "Electron.dz",
-        "Electron.dxy", "Muon.dz", "Muon.dxy",
+        "Electron.dxy", "Muon.dz", "Muon.dxy", #"AutoGenMatchedVBFJets.pt",
+        #"AutoGenMatchedVBFJets.eta"
     },
     produces={
         mc_weight, category_ids,
@@ -60,6 +61,7 @@ def features(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
         "cutflow.tau1_pt", "cutflow.tau1_eta", "cutflow.tau1_deepTauJet",
         "cutflow.tau1_deepTauMu", "cutflow.tau1_deepTauE", "cutflow.tau1_dz",
         "cutflow.e1_dz", "cutflow.e1_dxy", "cutflow.mu1_dz", "cutflow.mu1_dxy",
+        # "cutflow.GenMatchedVBFJets_eta",
     },
 )
 def cutflow_features(
@@ -103,5 +105,6 @@ def cutflow_features(
     events = set_ak_column_f32(events, "cutflow.e1_dxy", Route("Electron.dxy[:,0]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "cutflow.mu1_dz", Route("Muon.dz[:,0]").apply(events, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "cutflow.mu1_dxy", Route("Muon.dxy[:,0]").apply(events, EMPTY_FLOAT))
+    #events = set_ak_column_f32(events, "cutflow.AutoGenMatchedVBFJets_eta", Route("AutoGenMatchedVBFJets.eta[:,0]").apply(events, EMPTY_FLOAT))
 
     return events

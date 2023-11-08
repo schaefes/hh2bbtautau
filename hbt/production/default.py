@@ -20,9 +20,12 @@ from hbt.production.invariant_mass import (invariant_mass_jets, invariant_mass_t
     kinematic_vars_bjets, jet_information, bjet_information, tau_information,
     kinematic_vars_colljets, dr_inv_mass_jets, d_eta_inv_mass_jets, energy_correlation,
     genBPartonProducer, genTauPartonProducer, genHPartonProducer, genVBFPartonProducer,
-    kinematic_vars_VBFjets, dR_bjets, dR_tau, Btagging_efficiency_Bpartons, VBFtagging_efficiency,
+    kinematic_vars_VBFjets, dR_bjets, dR_tau, Btagging_efficiency_Bpartons,
     VBFsteps_analysis, GenInvMassdEta, NumberOfMatchedPartons, VBFCandidatesInvMassdEta)
-from hbt.production.Tau_plotting import (kinematics_tau_partons, PartonsFromTauIdx)
+from hbt.production.Tau_plotting import (kinematics_tau_partons, PartonsFromTauIdx, PartonsFromHadDecay)
+from hbt.production.ml_producer import (kinematic_vars_vbfmaskjets, kinematic_vars_customvbfmaskjets,
+                                        kinematic_vars_customvbfmaskjets2)
+from hbt.production.VBF_plotting import (VBFtagging_efficiency, VBFPairsInEvent)
 
 
 ak = maybe_import("awkward")
@@ -40,6 +43,8 @@ ak = maybe_import("awkward")
         kinematic_vars_VBFjets, dR_bjets, dR_tau, Btagging_efficiency_Bpartons,
         VBFtagging_efficiency, VBFsteps_analysis, GenInvMassdEta, NumberOfMatchedPartons,
         VBFCandidatesInvMassdEta, kinematics_tau_partons, PartonsFromTauIdx,
+        kinematic_vars_vbfmaskjets, kinematic_vars_customvbfmaskjets, PartonsFromHadDecay,
+        VBFPairsInEvent, kinematic_vars_customvbfmaskjets2,
     },
     produces={
         category_ids, features, normalization_weights, normalized_pdf_weight,
@@ -52,17 +57,19 @@ ak = maybe_import("awkward")
         genHPartonProducer, genVBFPartonProducer, kinematic_vars_VBFjets, dR_bjets, dR_tau,
         Btagging_efficiency_Bpartons, VBFtagging_efficiency, VBFsteps_analysis,
         GenInvMassdEta, NumberOfMatchedPartons, VBFCandidatesInvMassdEta,
-        kinematics_tau_partons, PartonsFromTauIdx,
+        kinematics_tau_partons, PartonsFromTauIdx, kinematic_vars_vbfmaskjets,
+        kinematic_vars_customvbfmaskjets, PartonsFromHadDecay, VBFPairsInEvent,
+        kinematic_vars_customvbfmaskjets2,
     },
 )
 def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    # category ids
+    '''category ids'''
     events = self[category_ids](events, **kwargs)
 
-    # features
+    '''features'''
     events = self[features](events, **kwargs)
 
-    # invariant masses
+    '''invariant masses'''
 
     events = self[invariant_mass_jets](events, **kwargs)
 
@@ -72,13 +79,19 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     events = self[invariant_mass_HH](events, **kwargs)
 
-    # kinetmatatic vars for jets, bjets, taus ----
+    '''kinetmatatic vars for jets, bjets, taus'''
 
-    events = self[kinematic_vars_colljets](events, **kwargs)
+    # events = self[kinematic_vars_colljets](events, **kwargs)
 
-    events = self[dr_inv_mass_jets](events, **kwargs)
+    # events = self[kinematic_vars_vbfmaskjets](events, **kwargs)
 
-    events = self[d_eta_inv_mass_jets](events, **kwargs)
+    # events = self[kinematic_vars_customvbfmaskjets](events, **kwargs)
+
+    events = self[kinematic_vars_customvbfmaskjets2](events, **kwargs)
+
+    # events = self[dr_inv_mass_jets](events, **kwargs)
+
+    # events = self[d_eta_inv_mass_jets](events, **kwargs)
 
     # events = self[energy_correlation](events, **kwargs)
 
@@ -96,26 +109,28 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # events = self[tau_information](events, **kwargs)
 
-    # GenPart Information
+    '''GenPart Information'''
 
-    events = self[genBPartonProducer](events, **kwargs)
+    # events = self[genBPartonProducer](events, **kwargs)
 
-    events = self[genTauPartonProducer](events, **kwargs)
+    # events = self[genTauPartonProducer](events, **kwargs)
 
-    events = self[genHPartonProducer](events, **kwargs)
+    # events = self[genHPartonProducer](events, **kwargs)
 
-    events = self[dR_bjets](events, **kwargs)
+    # events = self[dR_bjets](events, **kwargs)
 
     # events = self[dR_tau](events, **kwargs)
 
     # events = self[Btagging_efficiency_Bpartons](events, **kwargs)
 
-    # (Gen) VBF Plotting
+    '''(Gen) VBF Plotting'''
     # events = self[genVBFPartonProducer](events, **kwargs)
 
     # events = self[kinematic_vars_VBFjets](events, **kwargs)
 
     # events = self[VBFtagging_efficiency](events, **kwargs)
+
+    # events = self[VBFPairsInEvent](events, **kwargs)
 
     # events = self[VBFsteps_analysis](events, **kwargs)
 
@@ -125,10 +140,12 @@ def default(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
 
     # events = self[VBFCandidatesInvMassdEta](events, **kwargs)
 
-    # Tau Parton Plotting
-    events = self[kinematics_tau_partons](events, **kwargs)
+    '''Tau Parton Plotting'''
+    # events = self[kinematics_tau_partons](events, **kwargs)
 
     # events = self[PartonsFromTauIdx](events, **kwargs)
+
+    # events = self[PartonsFromHadDecay](events, **kwargs)
 
     # mc-only weights
     if self.dataset_inst.is_mc:

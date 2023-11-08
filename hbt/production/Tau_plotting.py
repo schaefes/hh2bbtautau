@@ -70,7 +70,7 @@ def find_genjet_indices(array1: ak.Array, array2: ak.Array, deltaR):
     },
     produces={
         "GenPartTauParton1Pt", "GenPartTauParton2Pt", "GenPartTauParton1Eta", "GenPartTauParton2Eta",
-        "GenPartTauPartonInvMass", "GenPartTauPartondEta",
+        "GenPartTauPartonInvMass", "GenPartTauPartondEta", "GenPartTauPartondR",
     },
 )
 def kinematics_tau_partons(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -97,6 +97,11 @@ def kinematics_tau_partons(self: Producer, events: ak.Array, **kwargs) -> ak.Arr
     dEta_tau_partons = d_eta_helper(events.genTaupartonH[:, 0], events.genTaupartonH[:, 1])
     events = set_ak_column_f32(events, "GenPartTauPartondEta", ak.fill_none(dEta_tau_partons, EMPTY_FLOAT))
 
+    # dR of Tau Partons
+    dR_table = events.genTaupartonH.metric_table(events.genTaupartonH, axis=1)
+    dR_partons = dR_table[:, 0, 1]
+    events = set_ak_column_f32(events, "GenPartTauPartondR", ak.fill_none(dR_partons, EMPTY_FLOAT))
+
     return events
 
 
@@ -110,7 +115,8 @@ def kinematics_tau_partons(self: Producer, events: ak.Array, **kwargs) -> ak.Arr
         "UnmatchedTauParton1Pt", "UnmatchedTauParton2Pt", "UnmatchedTauPartonPt",
         "UnmatchedTauParton1Eta", "UnmatchedTauParton2Eta", "UnmatchedTauPartonEta",
         "UnmatchedTau1Pt", "UnmatchedTau2Pt", "UnmatchedTauPt",
-        "UnmatchedTau1Eta", "UnmatchedTau2Eta", "UnmatchedTauEta",
+        "UnmatchedTau1Eta", "UnmatchedTau2Eta", "UnmatchedTauEta", "UnmatchedPartonsdR",
+        "PartonPairsdR",
     },
 )
 def PartonsFromTauIdx(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -123,8 +129,17 @@ def PartonsFromTauIdx(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     # Get Partons by delta R matching using a smaller radius of 0.3 instead of 0.4
     TauPartonIdx = find_genjet_indices(events.Tau, events.genTaupartonH, 0.3)
     TauPartonIdx = ak.pad_none(TauPartonIdx, 2, clip=True)
-    mask_partons = ak.where(TauPartonIdx != None, True, False)
+    PartonTauIdx = find_genjet_indices(events.genTaupartonH, events.Tau, 0.3)
+    PartonTauIdx = ak.pad_none(PartonTauIdx, 2, clip=True)
+
+    # mask that returns taus that could be matched
+    mask_taus = ak.where(TauPartonIdx != None, True, False)
+    mask_taus = ak.fill_none(mask_taus, False)
+
+    # mask that returns partons that could be matched
+    mask_partons = ak.where(PartonTauIdx != None, True, False)
     mask_partons = ak.fill_none(mask_partons, False)
+
     # sum(mask_partons)=10352, tot numer of partons 7671*2->10352 of a total of 15242 could e matched
     # through delta R matching
     # Total num of Taus if a 3rd tau per event in incl. 10476, if 3rd tau not incl in count 10469
@@ -134,12 +149,12 @@ def PartonsFromTauIdx(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     unmatchedPartonEta1 = ak.fill_none(ak.mask(events.genTaupartonH, ~mask_partons).eta[:,0], EMPTY_FLOAT)
     unmatchedPartonEta2 = ak.fill_none(ak.mask(events.genTaupartonH, ~mask_partons).eta[:,1], EMPTY_FLOAT)
 
-    events = set_ak_column(events, "Tau", ak.pad_none(events.Tau, 2))
+    padded_taus = ak.pad_none(events.Tau, 2)
 
-    unmatchedTauPt1 = ak.fill_none(ak.mask(events.Tau[:, :2], ~mask_partons).pt[:,0], EMPTY_FLOAT)
-    unmatchedTauPt2 = ak.fill_none(ak.mask(events.Tau[:, :2], ~mask_partons).pt[:,1], EMPTY_FLOAT)
-    unmatchedTauEta1 = ak.fill_none(ak.mask(events.Tau[:, :2], ~mask_partons).eta[:,0], EMPTY_FLOAT)
-    unmatchedTauEta2 = ak.fill_none(ak.mask(events.Tau[:, :2], ~mask_partons).eta[:,1], EMPTY_FLOAT)
+    unmatchedTauPt1 = ak.fill_none(ak.mask(padded_taus[:, :2], ~mask_taus).pt[:,0], EMPTY_FLOAT)
+    unmatchedTauPt2 = ak.fill_none(ak.mask(padded_taus[:, :2], ~mask_taus).pt[:,1], EMPTY_FLOAT)
+    unmatchedTauEta1 = ak.fill_none(ak.mask(padded_taus[:, :2], ~mask_taus).eta[:,0], EMPTY_FLOAT)
+    unmatchedTauEta2 = ak.fill_none(ak.mask(padded_taus[:, :2], ~mask_taus).eta[:,1], EMPTY_FLOAT)
 
     # put all unmatched taus in one column
     cat_pt = np.concatenate((unmatchedPartonPt1[unmatchedPartonPt1 != EMPTY_FLOAT], unmatchedPartonPt2[unmatchedPartonPt2 != EMPTY_FLOAT]))
@@ -175,5 +190,70 @@ def PartonsFromTauIdx(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = set_ak_column_f32(events, "UnmatchedTau2Eta", ak.fill_none(unmatchedTauEta2, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "UnmatchedTauPt", ak.fill_none(unmatchedTauPt, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "UnmatchedTauEta", ak.fill_none(unmatchedTauEta, EMPTY_FLOAT))
+
+    # check parton matching efficiency in different dR ranges between the partons
+    dR_table = events.genTaupartonH.metric_table(events.genTaupartonH, axis=1)
+    dR_partons = dR_table[:, 0, 1]
+    events = set_ak_column_f32(events, "PartonPairsdR", ak.fill_none(dR_partons, EMPTY_FLOAT))
+    dR_toPartons = np.stack((dR_partons, dR_partons), axis=1)
+    masked_dR_toPartons = dR_toPartons[~mask_partons]
+    unmatchedPartonsdR2 = np.full(len(events.genTaupartonH), EMPTY_FLOAT)
+    unmatchedPartonsdR2[:len(masked_dR_toPartons)] = masked_dR_toPartons
+    events = set_ak_column_f32(events, "UnmatchedPartonsdR", ak.fill_none(unmatchedPartonsdR2, EMPTY_FLOAT))
+
+    return events
+
+
+@producer(
+    uses={
+        "GenPart.*", "Tau.*", "genTaupartonHHad.*",
+        attach_coffea_behavior,
+    },
+    produces={"HadTauPartonsPt1", "HadTauPartonsPt2",
+    },
+)
+def PartonsFromHadDecay(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"genTaupartonHHad": {"type_name": "GenParticle", "skip_fields": "*Idx*G"}} , **kwargs)
+    # events = set_ak_column(events, "genTaupartonHHad", ak.pad_none(events.genTaupartonH, 2))
+    events = self[attach_coffea_behavior](events, collections=["Tau"], **kwargs)
+    tau = ak.pad_none(events.Tau, 2)
+    events = set_ak_column(events, "genTaupartonHHad", ak.pad_none(events.genTaupartonHHad, 2))
+
+    events = set_ak_column_f32(events, "HadTauPartonsPt1", ak.fill_none(events.genTaupartonHHad.pt[:, 0], EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "HadTauPartonsPt2", ak.fill_none(events.genTaupartonHHad.pt[:, 1], EMPTY_FLOAT))
+
+
+    # TauPartonIdx = find_genjet_indices(events.Tau, events.genTaupartonH, 0.3)
+    # TauPartonIdx = ak.pad_none(TauPartonIdx, 2, clip=True)
+    # PartonTauIdx = find_genjet_indices(events.genTaupartonH, events.Tau, 0.3)
+    # PartonTauIdx = ak.pad_none(PartonTauIdx, 2, clip=True)
+
+    # mask_partons = ak.where(PartonTauIdx != None, True, False)
+    # mask_taus = ak.where(TauPartonIdx != None, True, False)
+
+    # matchedPartons = ak.mask(events.genTaupartonHHad, mask_partons)
+    # unmatchedPartons = ak.mask(events.genTaupartonHHad, ~mask_partons)
+    # matchedTaus = tau[mask_taus]
+    # unmatchedTaus = tau[~mask_taus]
+
+    # matchedParton1Pt = matchedPartons.pt[:, 0]
+    # matchedParton2Pt = matchedPartons.pt[:, 1]
+    # unmatchedParton1Pt = unmatchedPartons.pt[:, 0]
+    # unmatchedParton2Pt = unmatchedPartons.pt[:, 1]
+
+    # mask_fully_hadronic = (ak.count(events.genTaupartonHHad.pt, axis=1)==2)
+
+    # dR_table = events.genTaupartonHHad.metric_table(events.genTaupartonHHad, axis=1)
+    # dR_partons = dR_table[:, 0, 1][mask_fully_hadronic]
+    # dR_partons_ext = np.stack((dR_partons, dR_partons), axis=1)
+    # unmatched_fully_had = unmatchedPartons[mask_fully_hadronic].pt
+    # dR_unmatched = ak.where(unmatched_fully_had != None, dR_partons_ext, unmatched_fully_had)
+    # dR_unmatched_partons = np.full(len(dR_partons), EMPTY_FLOAT)
+    # dR_unmatched_partons[:len(ak.flatten(dR_unmatched))] = ak.flatten(dR_unmatched)
+
+    # events = set_ak_column_f32(events, "UnmatchedPartonsdR", ak.fill_none(dR_unmatched, EMPTY_FLOAT))
+    # events = set_ak_column_f32(events, "PartonsdR", ak.fill_none(dR_partons, EMPTY_FLOAT))
+    # events = set_ak_column_f32(events, "UnmatchedHadTauParton1Pt", ak.fill_none(unmatchedParton1Pt, EMPTY_FLOAT))
+    # events = set_ak_column_f32(events, "UnmatchedHadTauParton2Pt", ak.fill_none(unmatchedParton2Pt, EMPTY_FLOAT))
 
     return events

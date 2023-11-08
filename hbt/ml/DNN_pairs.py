@@ -40,17 +40,6 @@ class StdLayer(tf.keras.layers.Layer):
         return std_inputs
 
 
-class InpMasking(tf.keras.layers.Layer):
-    def call(self, inputs, masking_val):
-        print('START')
-        mask = (inputs != masking_val)
-        print('Mask Shape', mask.shape)
-        print('Input Shape', inputs.shape)
-        masked_inp = inputs[mask]
-        print('Masked Inp', masked_inp.shape)
-        return masked_inp
-
-
 class ShapMaskingLayer(tf.keras.layers.Layer):
     def __init__(self, slice_idx):
         super(ShapMaskingLayer, self).__init__()
@@ -61,6 +50,11 @@ class ShapMaskingLayer(tf.keras.layers.Layer):
         deepSets_inp = inputs[:, :, :self.slice_idx]
         events_inp = inputs[:, 0, self.slice_idx:]
         return [deepSets_inp, events_inp]
+
+
+class PairCombinations(tf.keras.layers.Layer):
+    def call(self, inputs):
+        return None
 
 
 class Dummy_2(tf.keras.Model):
@@ -141,13 +135,18 @@ class DeepSet(tf.keras.Model):
         self.masking_layer = tf.keras.layers.Masking(mask_value=masking_val)
 
     def call(self, inputs):
+
         # compute mask based on he masking value in inputs
         mask = self.masking_layer.compute_mask(inputs)
-        inputs_masked = tf.ragged.boolean_mask(inputs, mask)
 
-        x = self.hidden_layers[0](inputs_masked)
+        x = self.hidden_layers[0](inputs)
         for layer in self.hidden_layers[1:]:
             x = layer(x)
+
+        # apply the mask, pass only proper jets to the aggregation
+        x = tf.ragged.boolean_mask(x, mask)
+        inputs_masked = tf.ragged.boolean_mask(inputs, mask)
+        x = x + inputs_masked
 
         # get number of jets per event, required for the mean aggregation layer
         jet_num = tf.convert_to_tensor(np.sum(mask, axis=1), dtype=x.dtype)

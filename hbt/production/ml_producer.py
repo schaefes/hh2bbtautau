@@ -356,13 +356,15 @@ def kinematic_vars_colljets(self: Producer, events: ak.Array, **kwargs) -> ak.Ar
 @producer(
     uses={
         "VBFMaskJets.pt", "VBFMaskJets.eta", "VBFMaskJets.phi", "VBFMaskJets.mass",
-        "VBFMaskJets.btagDeepFlavB", "VBFMaskJets.hadronFlavour",
+        "VBFMaskJets.btagDeepFlavB", "VBFMaskJets.hadronFlavour", "VBFMaskJets.btagDeepFlavCvL",
+        "VBFMaskJets.btagDeepFlavQG", "VBFMaskJets.nConstituents",
         attach_coffea_behavior,
     },
     produces={
         "VBFMaskJets_njets", "VBFMaskJets_pt", "VBFMaskJets_eta", "VBFMaskJets_phi", "VBFMaskJets_mass",
         "VBFMaskJets_btag", "VBFMaskJets_hadFlav", "VBFMaskJets_ones", "VBFMaskJets_e",
         "VBFMaskJets_ht", "VBFMaskJets_mjj", "VBFMaskJets_max_dEta", "VBFMaskJets_mjj_dEta",
+        "VBFMaskJets_btagCvL", "VBFMaskJets_btagQG", "VBFMaskJets_nConstituents",
     },
 )
 def kinematic_vars_vbfmaskjets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -406,6 +408,18 @@ def kinematic_vars_vbfmaskjets(self: Producer, events: ak.Array, **kwargs) -> ak
     jets_hadFlav = ak.fill_none(jets_hadFlav, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "VBFMaskJets_hadFlav", jets_hadFlav)
 
+    jets_btagCvL = ak.to_regular(events.VBFMaskJets.btagDeepFlavCvL, axis=1)
+    jets_btagCvL = ak.fill_none(jets_btagCvL, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "VBFMaskJets_btagCvL", jets_btagCvL)
+
+    jets_btagQG = ak.to_regular(events.VBFMaskJets.btagDeepFlavQG, axis=1)
+    jets_btagQG = ak.fill_none(jets_btagQG, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "VBFMaskJets_btagQG", jets_btagQG)
+
+    jets_nConstituents = ak.to_regular(events.VBFMaskJets.nConstituents, axis=1)
+    jets_nConstituents = ak.fill_none(jets_nConstituents, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "VBFMaskJets_nConstituents", jets_nConstituents)
+
     ones_count_ds = ak.ones_like(events.VBFMaskJets.pt)
     ones_count_ds = ak.pad_none(ones_count_ds, max(n_jets))
     ones_count_ds = ak.to_regular(ones_count_ds, axis=1)
@@ -428,25 +442,36 @@ def kinematic_vars_vbfmaskjets(self: Producer, events: ak.Array, **kwargs) -> ak
     return events
 
 
-# kinematic vars for collection of all Jets that passed the default VBF mask and the default Jet Selection
+# kinematic vars for collection of all Jets that passed the custom VBF mask and the default Jet Selection
 @producer(
     uses={
         "CustomVBFMaskJets.pt", "CustomVBFMaskJets.eta", "CustomVBFMaskJets.phi", "CustomVBFMaskJets.mass",
         "CustomVBFMaskJets.btagDeepFlavB", "CustomVBFMaskJets.hadronFlavour",
+        "CustomVBFMaskJets.btagDeepFlavCvL", "CustomVBFMaskJets.btagDeepFlavQG",
+        "CustomVBFMaskJets.nConstituents", "MET.*",
         attach_coffea_behavior,
     },
     produces={
-        "CustomVBFMaskJets_njets", "CustomVBFMaskJets_pt", "CustomVBFMaskJets_eta", "CustomVBFMaskJets_phi", "CustomVBFMaskJets_mass",
-        "CustomVBFMaskJets_btag", "CustomVBFMaskJets_hadFlav", "CustomVBFMaskJets_ones", "CustomVBFMaskJets_e",
-        "CustomVBFMaskJets_ht",
+        "CustomVBFMaskJets_njets", "CustomVBFMaskJets_pt", "CustomVBFMaskJets_eta", "CustomVBFMaskJets_phi",
+        "CustomVBFMaskJets_mass", "CustomVBFMaskJets_btag", "CustomVBFMaskJets_hadFlav",
+        "CustomVBFMaskJets_ones", "CustomVBFMaskJets_e", "CustomVBFMaskJets_ht",
+        "CustomVBFMaskJets_mjj", "CustomVBFMaskJets_max_dEta", "CustomVBFMaskJets_mjj_dEta",
+        "CustomVBFMaskJets_btagCvL", "CustomVBFMaskJets_btagQG", "CustomVBFMaskJets_nConstituents",
+        "CustomVBFMaskJets_METphi",
     },
 )
 def kinematic_vars_customvbfmaskjets(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = self[attach_coffea_behavior](events, collections={"CustomVBFMaskJets": {"type_name": "Jet"}}, **kwargs)
     n_jets = ak.count(events.CustomVBFMaskJets.pt, axis=1)
     events = set_ak_column_f32(events, "CustomVBFMaskJets_njets", n_jets)
-    events = set_ak_column_f32(events, "n_jets", n_jets)
     max_njets = np.max(n_jets)
+
+    # Get max dEta and the corresponing invariant mass
+    max_dEta, inv_mass_dEta = dEta_and_inv_mass(events.CustomVBFMaskJets, n_jets)
+    events = set_ak_column(events, "CustomVBFMaskJets_max_dEta", ak.fill_none(max_dEta, EMPTY_FLOAT))
+    events = set_ak_column(events, "CustomVBFMaskJets_mjj_dEta", ak.fill_none(inv_mass_dEta, EMPTY_FLOAT))
+
+    # use padded jets only for all following operations
     events = set_ak_column(events, "CustomVBFMaskJets", ak.pad_none(events.CustomVBFMaskJets, max_njets))
 
     ht = ak.sum(abs(events.CustomVBFMaskJets.pt), axis=1)
@@ -476,6 +501,18 @@ def kinematic_vars_customvbfmaskjets(self: Producer, events: ak.Array, **kwargs)
     jets_hadFlav = ak.fill_none(jets_hadFlav, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "CustomVBFMaskJets_hadFlav", jets_hadFlav)
 
+    jets_btagCvL = ak.to_regular(events.CustomVBFMaskJets.btagDeepFlavCvL, axis=1)
+    jets_btagCvL = ak.fill_none(jets_btagCvL, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets_btagCvL", jets_btagCvL)
+
+    jets_btagQG = ak.to_regular(events.CustomVBFMaskJets.btagDeepFlavQG, axis=1)
+    jets_btagQG = ak.fill_none(jets_btagQG, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets_btagQG", jets_btagQG)
+
+    jets_nConstituents = ak.to_regular(events.CustomVBFMaskJets.nConstituents, axis=1)
+    jets_nConstituents = ak.fill_none(jets_nConstituents, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets_nConstituents", jets_nConstituents)
+
     ones_count_ds = ak.ones_like(events.CustomVBFMaskJets.pt)
     ones_count_ds = ak.pad_none(ones_count_ds, max(n_jets))
     ones_count_ds = ak.to_regular(ones_count_ds, axis=1)
@@ -491,7 +528,132 @@ def kinematic_vars_customvbfmaskjets(self: Producer, events: ak.Array, **kwargs)
     jets_e = ak.fill_none(jets_e, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "CustomVBFMaskJets_e", jets_e)
 
+    # Calculate maximum invariant mass
+    mjj = (events.Jet[:, 0] + events.Jet[:, 1]).mass
+    events = set_ak_column(events, "CustomVBFMaskJets_mjj", ak.fill_none(mjj, EMPTY_FLOAT))
+
+    # save the met phi to use for projection of the jet phis
+    events = set_ak_column_f32(events, "CustomVBFMaskJets_METphi", ak.fill_none(events.MET.phi, EMPTY_FLOAT))
+
     return events
+
+
+# kinematic vars for collection of all Jets that passed the custom VBF mask and the default Jet Selection
+@producer(
+    uses={
+        "CustomVBFMaskJets2.pt", "CustomVBFMaskJets2.eta", "CustomVBFMaskJets2.phi", "CustomVBFMaskJets2.mass",
+        "CustomVBFMaskJets2.btagDeepFlavB", "CustomVBFMaskJets2.hadronFlavour",
+        "CustomVBFMaskJets2.btagDeepFlavCvL", "CustomVBFMaskJets2.btagDeepFlavQG",
+        "CustomVBFMaskJets2.nConstituents", "MET.*","CustomVBFMaskJets2.btagDeepCvB",
+        "CustomVBFMaskJets2.btagDeepFlavCvB", "CustomVBFMaskJets2.btagDeepCvL",
+        "CustomVBFMaskJets2.btagDeepB",
+        attach_coffea_behavior,
+    },
+    produces={
+        "CustomVBFMaskJets2_njets", "CustomVBFMaskJets2_pt", "CustomVBFMaskJets2_eta", "CustomVBFMaskJets2_phi",
+        "CustomVBFMaskJets2_mass", "CustomVBFMaskJets2_btag", "CustomVBFMaskJets2_hadFlav",
+        "CustomVBFMaskJets2_ones", "CustomVBFMaskJets2_e", "CustomVBFMaskJets2_ht",
+        "CustomVBFMaskJets2_mjj", "CustomVBFMaskJets2_max_dEta", "CustomVBFMaskJets2_mjj_dEta",
+        "CustomVBFMaskJets2_btagCvL", "CustomVBFMaskJets2_btagCvB",
+        "CustomVBFMaskJets2_btagQG", "CustomVBFMaskJets2_nConstituents",
+        "CustomVBFMaskJets2_METphi", "CustomVBFMaskJets2_bFlavtagCvL",
+        "CustomVBFMaskJets2_bFlavtagCvB",
+        "CustomVBFMaskJets2_bFlavtag"
+    },
+)
+def kinematic_vars_customvbfmaskjets2(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"CustomVBFMaskJets2": {"type_name": "Jet"}}, **kwargs)
+    n_jets = ak.count(events.CustomVBFMaskJets2.pt, axis=1)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_njets", n_jets)
+    max_njets = np.max(n_jets)
+
+    # Get max dEta and the corresponing invariant mass
+    max_dEta, inv_mass_dEta = dEta_and_inv_mass(events.CustomVBFMaskJets2, n_jets)
+    events = set_ak_column(events, "CustomVBFMaskJets2_max_dEta", ak.fill_none(max_dEta, EMPTY_FLOAT))
+    events = set_ak_column(events, "CustomVBFMaskJets2_mjj_dEta", ak.fill_none(inv_mass_dEta, EMPTY_FLOAT))
+
+    # use padded jets only for all following operations
+    events = set_ak_column(events, "CustomVBFMaskJets2", ak.pad_none(events.CustomVBFMaskJets2, max_njets))
+
+    ht = ak.sum(abs(events.CustomVBFMaskJets2.pt), axis=1)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_ht", ht)
+
+    jets_pt = ak.to_regular(events.CustomVBFMaskJets2.pt, axis=1)
+    jets_pt_filled = ak.fill_none(jets_pt, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_pt", jets_pt_filled)
+
+    jets_eta = ak.to_regular(events.CustomVBFMaskJets2.eta, axis=1)
+    jets_eta_filled = ak.fill_none(jets_eta, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_eta", jets_eta_filled)
+
+    jets_phi = ak.to_regular(events.CustomVBFMaskJets2.phi, axis=1)
+    jets_phi_filled = ak.fill_none(jets_phi, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_phi", jets_phi_filled)
+
+    jets_mass = ak.to_regular(events.CustomVBFMaskJets2.mass, axis=1)
+    jets_mass_filled = ak.fill_none(jets_mass, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_mass", jets_mass_filled)
+
+    jets_hadFlav = ak.to_regular(events.CustomVBFMaskJets2.hadronFlavour, axis=1)
+    jets_hadFlav = ak.fill_none(jets_hadFlav, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_hadFlav", jets_hadFlav)
+
+    jets_bFlavtag = ak.to_regular(events.CustomVBFMaskJets2.btagDeepFlavB, axis=1)
+    jets_bFlavtag = ak.fill_none(jets_bFlavtag, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_bFlavtag", jets_bFlavtag)
+
+    jets_bFlavtagCvL = ak.to_regular(events.CustomVBFMaskJets2.btagDeepFlavCvL, axis=1)
+    jets_bFlavtagCvL = ak.fill_none(jets_bFlavtagCvL, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_bFlavtagCvL", jets_bFlavtagCvL)
+
+    jets_bFlavtagCvB = ak.to_regular(events.CustomVBFMaskJets2.btagDeepFlavCvB, axis=1)
+    jets_bFlavtagCvB = ak.fill_none(jets_bFlavtagCvB, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_bFlavtagCvB", jets_bFlavtagCvB)
+
+    jets_btagQG = ak.to_regular(events.CustomVBFMaskJets2.btagDeepFlavQG, axis=1)
+    jets_btagQG = ak.fill_none(jets_btagQG, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_btagQG", jets_btagQG)
+
+    jets_btag = ak.to_regular(events.CustomVBFMaskJets2.btagDeepB, axis=1)
+    jets_btag = ak.fill_none(jets_btag, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_btag", jets_btag)
+
+    jets_btagCvL = ak.to_regular(events.CustomVBFMaskJets2.btagDeepCvL, axis=1)
+    jets_btagCvL = ak.fill_none(jets_btagCvL, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_btagCvL", jets_btagCvL)
+
+    jets_btagCvB = ak.to_regular(events.CustomVBFMaskJets2.btagDeepCvB, axis=1)
+    jets_btagCvB = ak.fill_none(jets_btagCvB, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_btagCvB", jets_btagCvB)
+
+    jets_nConstituents = ak.to_regular(events.CustomVBFMaskJets2.nConstituents, axis=1)
+    jets_nConstituents = ak.fill_none(jets_nConstituents, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_nConstituents", jets_nConstituents)
+
+    ones_count_ds = ak.ones_like(events.CustomVBFMaskJets2.pt)
+    ones_count_ds = ak.pad_none(ones_count_ds, max(n_jets))
+    ones_count_ds = ak.to_regular(ones_count_ds, axis=1)
+    ones_count_ds = ak.fill_none(ones_count_ds, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_ones", ones_count_ds)
+
+    # Calculate energy
+    p_x = jets_pt * np.cos(jets_phi)
+    p_y = jets_pt * np.sin(jets_phi)
+    p_z = jets_pt * np.sinh(jets_eta)
+    p = np.sqrt(p_x**2 + p_y**2 + p_z**2)
+    jets_e = np.sqrt(jets_mass**2 + p**2)
+    jets_e = ak.fill_none(jets_e, EMPTY_FLOAT)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_e", jets_e)
+
+    # Calculate maximum invariant mass
+    mjj = (events.Jet[:, 0] + events.Jet[:, 1]).mass
+    events = set_ak_column(events, "CustomVBFMaskJets2_mjj", ak.fill_none(mjj, EMPTY_FLOAT))
+
+    # save the met phi to use for projection of the jet phis
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_METphi", ak.fill_none(events.MET.phi, EMPTY_FLOAT))
+
+    return events
+
 
 
 @producer(

@@ -526,13 +526,13 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title=r"BJet Pair Mass",
+        x_title=r"Invariant Mass of leading p$_T$ BJets",
     )
     config.add_variable(
         name="HH_pair_mass",
         expression="mHH",
         null_value=EMPTY_FLOAT,
-        binning=(50, 0.0, 1000.0),
+        binning=(50, 0.0, 1200.0),
         unit="GeV",
         x_title=r"HH Pair Mass",
     )
@@ -542,7 +542,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(40, 0.0, 400.0),
         unit="GeV",
-        x_title=r"Tau Pair Mass",
+        x_title=r"Invariant Mass of $\tau$ Leptons",
     )
     config.add_variable(
         name="inv_mass_d_eta",
@@ -913,7 +913,7 @@ def add_variables(config: od.Config) -> None:
         name="GenVBF1Eta",
         expression="GenPartVBFparton1Eta",
         null_value=EMPTY_FLOAT,
-        binning=(40, -6.0, 6.0),
+        binning=(45, -8.0, 8.0),
         unit="GeV",
         x_title=r"Gen VBF1 Parton $\eta$",
     )
@@ -953,7 +953,7 @@ def add_variables(config: od.Config) -> None:
         name="GenVBF2Eta",
         expression="GenPartVBFparton2Eta",
         null_value=EMPTY_FLOAT,
-        binning=(40, -6.0, 6.0),
+        binning=(45, -8.0, 8.0),
         unit="GeV",
         x_title=r"Gen VBF2 Parton $\eta$",
     )
@@ -1336,7 +1336,6 @@ def add_variables(config: od.Config) -> None:
         expression="Btagging_results",
         null_value=EMPTY_FLOAT,
         binning=(4, -1.0, 2.01),
-        unit="GeV",
         x_title=r"B tagging efficiency",
     )
     config.add_variable(
@@ -1344,24 +1343,42 @@ def add_variables(config: od.Config) -> None:
         expression="HHBtagging_results",
         null_value=EMPTY_FLOAT,
         binning=(4, -1.0, 2.01),
-        unit="GeV",
         x_title=r"HHB tagging efficiency",
     )
     config.add_variable(
-        name="VBFtagging_efficiency_auto",
-        expression="VBFtagging_results_auto",
+        name="VBFtagging_efficiency_auto_0",
+        expression="VBFtagging_results_auto_0",
         null_value=EMPTY_FLOAT,
-        binning=(4, -1.0, 2.01),
-        unit="GeV",
-        x_title=r"VBF Jets tagging efficiency (Automatic Matching)",
+        binning=[-0.5, 0.5, 1.5, 2.5],
+        x_title=r"Tagging Efficiency for VBF Jets",
     )
     config.add_variable(
-        name="VBFtagging_efficiency_dr",
-        expression="VBFtagging_results_dr",
+        name="VBFtagging_efficiency_dr_0",
+        expression="VBFtagging_results_dr_0",
         null_value=EMPTY_FLOAT,
-        binning=(4, -1.0, 2.01),
-        unit="GeV",
-        x_title=r"VBF Jets tagging efficiency ($\Delta$R Matching)",
+        binning=[-0.5, 0.5, 1.5, 2.5],
+        x_title=r"Tagging Efficiency for VBF Jets ($\Delta$R Matching)",
+    )
+    config.add_variable(
+        name="VBFtagging_efficiency_auto_1",
+        expression="VBFtagging_results_auto_1",
+        null_value=EMPTY_FLOAT,
+        binning=[-1.5, -0.5, 0.5, 1.5, 2.5],
+        x_title=r"Tagging Efficiency for VBF Jets",
+    )
+    config.add_variable(
+        name="VBFtagging_efficiency_dr_1",
+        expression="VBFtagging_results_dr_1",
+        null_value=EMPTY_FLOAT,
+        binning=[-1.5, -0.5, 0.5, 1.5, 2.5],
+        x_title=r"Tagging Efficiency for VBF Jets ($\Delta$ R Matching)",
+    )
+    config.add_variable(
+        name="VBFPairsInEvent",
+        expression="VBFPairsInEvent",
+        null_value=EMPTY_FLOAT,
+        binning=[-0.5, 0.5, 1.5],
+        x_title=r"Number of VBF Jet Pairs",
     )
     config.add_variable(
         name="VBFMaskStep",
@@ -1533,15 +1550,14 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(50, 0.0, 1000.0),
         unit="GeV",
-        x_title=r"Gen Matched VBF Jets $p_{T}$ VBF Jets left after ak4 Mask Selection",
+        x_title=r"Gen Matched VBF Jets $p_{T}$ VBF Jets",
     )
     config.add_variable(
         name="GenMatchedVBFJets_ak4_eta",
         expression="GenMatchedVBFJets_ak4_eta",
         null_value=EMPTY_FLOAT,
         binning=(40, -6.0, 6.0),
-        unit="GeV",
-        x_title=r"Gen Matched VBF Jets $\eta$ left after VBF ak4 Selection",
+        x_title=r"Gen Matched VBF Jets $\eta$",
     )
     config.add_variable(
         name="GenMatchedVBFJets_mask_pt",
@@ -1549,7 +1565,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(50, 0.0, 1000.0),
         unit="GeV",
-        x_title=r"Gen Matched VBF Jets $p_{T}$ left after VBF Mask Selection",
+        x_title=r"Gen Matched VBF Jets $p_{T}$",
     )
     config.add_variable(
         name="GenMatchedVBFJets_mask_eta",
@@ -1557,7 +1573,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(40, -6.0, 6.0),
         unit="GeV",
-        x_title=r"Gen Matched VBF Jets $\eta$ left after VBF Mask Selection",
+        x_title=r"Gen Matched VBF Jets $\eta$",
     )
     config.add_variable(
         name="GenMatchedVBFJets_pairs_pt",
@@ -1565,7 +1581,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(50, 0.0, 1000.0),
         unit="GeV",
-        x_title=r"Gen Matched VBF Jets $p_{T}$ left after VBF Pair Selection",
+        x_title=r"Gen Matched VBF Jets $p_{T}$",
     )
     config.add_variable(
         name="GenMatchedVBFJets_pairs_eta",
@@ -1573,7 +1589,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(40, -6.0, 6.0),
         unit="GeV",
-        x_title=r"Gen Matched VBF Jets $\eta$ left after VBF Pair Selection",
+        x_title=r"Gen Matched VBF Jets $\eta$",
     )
     config.add_variable(
         name="GenMatchedVBFJets_trigger_pt",
@@ -1581,7 +1597,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(50, 0.0, 1000.0),
         unit="GeV",
-        x_title=r"Gen Matched VBF Jets $p_{T}$ left after VBF Trigger Selection",
+        x_title=r"Gen Matched VBF Jets $p_{T}$",
     )
     config.add_variable(
         name="GenMatchedVBFJets_trigger_eta",
@@ -1589,23 +1605,21 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(40, -6.0, 6.0),
         unit="GeV",
-        x_title=r"Gen Matched VBF Jets $\eta$ left after VBF Trigger Selection",
+        x_title=r"Gen Matched VBF Jets $\eta$",
     )
     config.add_variable(
         name="GenMatchedVBFJets_ak4_inv_mass",
         expression="GenMatchedVBFJets_ak4_inv_mass",
         null_value=EMPTY_FLOAT,
         binning=(100, 0.0, 5100.0),
-        unit="GeV",
-        x_title=r"Gen Matched VBF Jets $m_{VBF1,VBF2}$ after VBF ak4 Selection",
+        x_title=r"Gen Matched VBF Jets $m_{VBF1,VBF2}$",
     )
     config.add_variable(
         name="GenMatchedVBFJets_ak4_dEta",
         expression="GenMatchedVBFJets_ak4_dEta",
         null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 10.0),
-        unit="GeV",
-        x_title=r"Gen Matched VBF Jets $\Delta \eta$ after VBF ak4 Selection",
+        binning=(40, 0.0, 9.0),
+        x_title=r"Gen Matched VBF Jets $\Delta \eta$",
     )
     config.add_variable(
         name="GenMatchedVBFJets_mask_inv_mass",
@@ -1613,7 +1627,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(100, 0.0, 5100.0),
         unit="GeV",
-        x_title=r"Gen Matched VBF Jets $m_{VBF1,VBF2}$ after VBF Mask Selection",
+        x_title=r"Gen Matched VBF Jets $m_{VBF1,VBF2}$",
     )
     config.add_variable(
         name="GenMatchedVBFJets_mask_dEta",
@@ -1621,7 +1635,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(40, 0.0, 10.0),
         unit="GeV",
-        x_title=r"Gen Matched VBF Jets $\Delta \eta$ after VBF Mask Selection",
+        x_title=r"Gen Matched VBF Jets $\Delta \eta$",
     )
     config.add_variable(
         name="GenMatchedVBFJets_pairs_inv_mass",
@@ -1629,7 +1643,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(100, 0.0, 5100.0),
         unit="GeV",
-        x_title=r"Gen Matched VBF Jets $m_{VBF1,VBF2}$ after VBF Pair Selection",
+        x_title=r"Gen Matched VBF Jets $m_{VBF1,VBF2}$",
     )
     config.add_variable(
         name="GenMatchedVBFJets_pairs_dEta",
@@ -1637,7 +1651,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(40, 0.0, 10.0),
         unit="GeV",
-        x_title=r"Gen Matched VBF Jets $\Delta \eta$ after VBF Pair Selection",
+        x_title=r"Gen Matched VBF Jets $\Delta \eta$",
     )
     config.add_variable(
         name="GenMatchedVBFJets_trigger_inv_mass",
@@ -1645,7 +1659,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(100, 0.0, 5100.0),
         unit="GeV",
-        x_title=r"Gen Matched VBF Jets $m_{VBF1,VBF2}$ after VBF Trigger Selection",
+        x_title=r"Gen Matched VBF Jets $m_{VBF1,VBF2}$",
     )
     config.add_variable(
         name="GenMatchedVBFJets_trigger_dEta",
@@ -1653,7 +1667,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(40, 0.0, 10.0),
         unit="GeV",
-        x_title=r"Gen Matched VBF Jets $\Delta \eta$ after VBF Trigger Selection",
+        x_title=r"Gen Matched VBF Jets $\Delta \eta$",
     )
 
     # Partons of matched VBF Jets that are left after Object VBF Selection Steps
@@ -1664,7 +1678,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(50, 0.0, 1000.0),
         unit="GeV",
-        x_title=r"Parton $p_{T}$ to VBF Jets left after ak4 Mask Selection",
+        x_title=r"Matched VBF Parton $p_{T}$",
     )
     config.add_variable(
         name="VBFpartons_ak4_eta",
@@ -1672,7 +1686,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(40, -6.0, 6.0),
         unit="GeV",
-        x_title=r"Parton $\eta$ to VBF Jets left after VBF ak4 Selection",
+        x_title=r"Matched VBF Parton $\eta$",
     )
     config.add_variable(
         name="VBFpartons_mask_pt",
@@ -1680,7 +1694,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(50, 0.0, 1000.0),
         unit="GeV",
-        x_title=r"Parton $p_{T}$ to VBF Jets left after VBF Mask Selection",
+        x_title=r"Matched VBF Parton $p_{T}$",
     )
     config.add_variable(
         name="VBFpartons_mask_eta",
@@ -1688,7 +1702,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(40, -6.0, 6.0),
         unit="GeV",
-        x_title=r"Parton $\eta$ to VBF Jets left after VBF Mask Selection",
+        x_title=r"Matched VBF Parton $\eta$",
     )
     config.add_variable(
         name="VBFpartons_pairs_pt",
@@ -1696,7 +1710,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(50, 0.0, 1000.0),
         unit="GeV",
-        x_title=r"Parton $p_{T}$ to VBF Jets left after VBF Pair Conditions Selection",
+        x_title=r"Matched VBF Parton $p_{T}$",
     )
     config.add_variable(
         name="VBFpartons_pairs_eta",
@@ -1704,7 +1718,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(40, -6.0, 6.0),
         unit="GeV",
-        x_title=r"Parton $\eta$ to VBF Jets left after VBF Pair Conditions Selection",
+        x_title=r"Matched VBF Parton $\eta$",
     )
     config.add_variable(
         name="VBFpartons_trigger_pt",
@@ -1712,7 +1726,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(50, 0.0, 1000.0),
         unit="GeV",
-        x_title=r"Parton $p_{T}$ to VBF Jets left after VBF Trigger Selection",
+        x_title=r"Matched VBF Parton $p_{T}$",
     )
     config.add_variable(
         name="VBFpartons_trigger_eta",
@@ -1720,7 +1734,7 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(40, -6.0, 6.0),
         unit="GeV",
-        x_title=r"Parton $\eta$ to VBF Jets left after VBF Trigger Selection",
+        x_title=r"Matched VBF Parton $\eta$",
     )
     config.add_variable(
         name="GenVBFPartons_ak4_inv_mass",
@@ -1728,15 +1742,14 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(100, 0.0, 5100.0),
         unit="GeV",
-        x_title=r"VBF Partons $m_{VBF1,VBF2}$ after VBF ak4 Selection",
+        x_title=r"Matched VBF Partons $m_{VBF1,VBF2}$",
     )
     config.add_variable(
         name="GenVBFPartons_ak4_dEta",
         expression="GenVBFPartons_ak4_dEta",
         null_value=EMPTY_FLOAT,
         binning=(40, 0.0, 10.0),
-        unit="GeV",
-        x_title=r"VBF Partons $\Delta \eta$ after VBF ak4 Selection",
+        x_title=r"Matched VBF Partons $\Delta \eta$",
     )
     config.add_variable(
         name="GenVBFPartons_mask_inv_mass",
@@ -1792,7 +1805,7 @@ def add_variables(config: od.Config) -> None:
         name="GenPartTauParton1Pt",
         expression="GenPartTauParton1Pt",
         null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 400.0),
+        binning=(40, 0.0, 1200.0),
         unit="GeV",
         x_title=r"$\tau$ Parton 1 $p_{T}$",
     )
@@ -1836,7 +1849,23 @@ def add_variables(config: od.Config) -> None:
         unit="GeV",
         x_title=r"$\tau$ Parton $\Delta\eta_{\tau1,\tau1}$",
     )
-
+    # Hadronically decaying Tau Partons
+    config.add_variable(
+        name="HadTauPartonsPt1",
+        expression="HadTauPartonsPt1",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"$\tau$ Parton 1 $p_{T}$",
+    )
+    config.add_variable(
+        name="HadTauPartonsPt2",
+        expression="HadTauPartonsPt2",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"$\tau$ Parton 2 $p_{T}$",
+    )
     # Tau Partons that could be matched to a reco Tau
     config.add_variable(
         name="MatchedTauParton1Pt",
@@ -1870,6 +1899,7 @@ def add_variables(config: od.Config) -> None:
         unit="GeV",
         x_title=r"Matched $\tau$ Parton 2 $\eta$",
     )
+    # Tau Partons that couldn't be matches to a reco Tau
     config.add_variable(
         name="UnmatchedTauParton1Pt",
         expression="UnmatchedTauParton1Pt",
@@ -1906,7 +1936,7 @@ def add_variables(config: od.Config) -> None:
         name="UnmatchedTauPartonPt",
         expression="UnmatchedTauPartonPt",
         null_value=EMPTY_FLOAT,
-        binning=(60, 0.0, 1000.0),
+        binning=(60, 0.0, 800.0),
         unit="GeV",
         x_title=r"Unmatched $\tau$ Partons $p_{T}$",
     )
@@ -1918,13 +1948,31 @@ def add_variables(config: od.Config) -> None:
         unit="GeV",
         x_title=r"Unmatched $\tau$ Partons $\eta$",
     )
+    # Unmatched Tau Partons in different dR regions between the Partons and all Pairs in
+    # dR regions for reference
+    config.add_variable(
+        name="UnmatchedPartonsdR",
+        expression="UnmatchedPartonsdR",
+        null_value=EMPTY_FLOAT,
+        binning=(20, 0.0, 2.0),
+        unit="GeV",
+        x_title=r"Unmatched $\tau$ Parton Partons in $\Delta R_{\tau_{P},\tau_{P}}$ Intervals",
+    )
+    config.add_variable(
+        name="PartonPairsdR",
+        expression="PartonPairsdR",
+        null_value=EMPTY_FLOAT,
+        binning=(20, 0.0, 2.0),
+        unit="GeV",
+        x_title=r"$\tau$ Parton Pairs in $\Delta R_{\tau_{P},\tau_{P}}$ Intervals (2)",
+    )
 
     # Taus that could and couldn't ne matched to a Tau Parton
     config.add_variable(
         name="MatchedTau1Pt",
         expression="MatchedTau1Pt",
         null_value=EMPTY_FLOAT,
-        binning=(60, 0.0, 1000.0),
+        binning=(60, 0.0, 1500.0),
         unit="GeV",
         x_title=r"Matched $\tau$ 1 $p_{T}$",
     )
@@ -1940,7 +1988,7 @@ def add_variables(config: od.Config) -> None:
         name="MatchedTau2Pt",
         expression="MatchedTau2Pt",
         null_value=EMPTY_FLOAT,
-        binning=(60, 0.0, 1000.0),
+        binning=(60, 0.0, 1500.0),
         unit="GeV",
         x_title=r"Matched $\tau$ 2 $p_{T}$",
     )
@@ -1956,7 +2004,7 @@ def add_variables(config: od.Config) -> None:
         name="UnmatchedTau1Pt",
         expression="UnmatchedTau1Pt",
         null_value=EMPTY_FLOAT,
-        binning=(60, 0.0, 1000.0),
+        binning=(60, 0.0, 1500.0),
         unit="GeV",
         x_title=r"Unmatched $\tau$ 1 $p_{T}$",
     )
@@ -1972,7 +2020,7 @@ def add_variables(config: od.Config) -> None:
         name="UnmatchedTau2Pt",
         expression="UnmatchedTau2Pt",
         null_value=EMPTY_FLOAT,
-        binning=(60, 0.0, 1000.0),
+        binning=(60, 0.0, 1500.0),
         unit="GeV",
         x_title=r"Unmatched $\tau$ 2 $p_{T}$",
     )
@@ -1988,7 +2036,7 @@ def add_variables(config: od.Config) -> None:
         name="UnmatchedTauPt",
         expression="UnmatchedTauPt",
         null_value=EMPTY_FLOAT,
-        binning=(60, 0.0, 1000.0),
+        binning=(60, 0.0, 1500.0),
         unit="GeV",
         x_title=r"Unmatched $\tau$ $p_{T}$",
     )
@@ -2083,6 +2131,149 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(30, 0.0, 7.0),
         x_title=r"BJets $\Delta \eta$",
+    )
+
+    # NN Input features plotting for custom Jet/VBF selections
+    config.add_variable(
+        name="CustomVBFMaskJets2_pt",
+        expression="CustomVBFMaskJets2_pt[:, 0]",
+        null_value=EMPTY_FLOAT,
+        binning=(60, 0.0, 800.0),
+        unit="GeV",
+        x_title=r"Jet 1 p$_{T}$",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_eta",
+        expression="CustomVBFMaskJets2_eta[:, 0]",
+        null_value=EMPTY_FLOAT,
+        binning=(20, 0.0, 5.5),
+        x_title=r"Jet 1 $\eta$",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_phi",
+        expression="CustomVBFMaskJets2_phi[:, 0]",
+        null_value=EMPTY_FLOAT,
+        binning=(20, -3.0, 3.0),
+        x_title=r"Jet 1 $\phi$",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_mass",
+        expression="CustomVBFMaskJets2_mass[:, 0]",
+        null_value=EMPTY_FLOAT,
+        binning=(60, 0.0, 200.0),
+        unit="GeV",
+        x_title=r"Jet 1 Mass",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_e",
+        expression="CustomVBFMaskJets2_e[:, 0]",
+        null_value=EMPTY_FLOAT,
+        binning=(70, 0.0, 1200.0),
+        unit = "GeV",
+        x_title=r"Jet 1 Energy",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_btag",
+        expression="CustomVBFMaskJets2_btag[:, 0]",
+        null_value=EMPTY_FLOAT,
+        binning=(15, 0.0, 1.0),
+        x_title=r"Jet 1 DeepB Score",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_btagCvL",
+        expression="CustomVBFMaskJets2_btagCvL[:, 0]",
+        null_value=EMPTY_FLOAT,
+        binning=(15, 0.0, 1.0),
+        x_title=r"Jet 1 DeepCvL Score",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_btagCvB",
+        expression="CustomVBFMaskJets2_btagCvB[:, 0]",
+        null_value=EMPTY_FLOAT,
+        binning=(15, 0.0, 1.0),
+        x_title=r"Jet 1 DeepCvB Score",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_bFlavtagCvB",
+        expression="CustomVBFMaskJets2_bFlavtagCvB[:, 0]",
+        null_value=EMPTY_FLOAT,
+        binning=(15, 0.0, 1.0),
+        x_title=r"Jet 1 DeepFlavCvB Score",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_bFlavtag",
+        expression="CustomVBFMaskJets2_bFlavtag[:, 0]",
+        null_value=EMPTY_FLOAT,
+        binning=(15, 0.0, 1.0),
+        x_title=r"Jet 1 DeepFlavB Score",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_bFlavtagCvL",
+        expression="CustomVBFMaskJets2_bFlavtagCvL[:, 0]",
+        null_value=EMPTY_FLOAT,
+        binning=(15, 0.0, 1.0),
+        x_title=r"Jet 1 DeepFlavCvL Score",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_btagQG",
+        expression="CustomVBFMaskJets2_btagQG[:, 0]",
+        null_value=EMPTY_FLOAT,
+        binning=(15, 0.0, 1.0),
+        x_title=r"Jet 1 DeepQG Score",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_njets",
+        expression="CustomVBFMaskJets2_njets",
+        null_value=EMPTY_FLOAT,
+        binning=(12, -0.5, 11.5),
+        x_title=r"Number of Jets per Event",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_mjj",
+        expression="CustomVBFMaskJets2_mjj",
+        null_value=EMPTY_FLOAT,
+        binning=(70, 0.0, 1200.0),
+        unit="GeV",
+        x_title=r"Highest Invariant Pair Mass of Jets",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets_mtautau",
+        expression="CustomVBFMaskJets_mtautau",
+        null_value=EMPTY_FLOAT,
+        binning=(50, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Invariant Mass of $\tau$ Leptons",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets_bjetbjet",
+        expression="CustomVBFMaskJets_bjetbjet",
+        null_value=EMPTY_FLOAT,
+        binning=(50, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Invarinat Mass of leading p$_{T}$ BJets",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_ht",
+        expression="CustomVBFMaskJets2_ht",
+        null_value=EMPTY_FLOAT,
+        binning=(70, 0.0, 1500.0),
+        unit="GeV",
+        x_title=r"H$_{T}$",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_mjj_dEta",
+        expression="CustomVBFMaskJets2_mjj_dEta",
+        null_value=EMPTY_FLOAT,
+        binning=(70, 0.0, 1500.0),
+        unit="GeV",
+        x_title=r"Invariant Mass of max. $\Delta \eta$ Pair",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_max_dEta",
+        expression="CustomVBFMaskJets2_max_dEta",
+        null_value=EMPTY_FLOAT,
+        binning=(20, 0.0, 9.0),
+        x_title=r"Max. $\Delta \eta$ of Jet Pair",
     )
 
     # weights
@@ -2304,4 +2495,11 @@ def add_variables(config: od.Config) -> None:
         null_value=EMPTY_FLOAT,
         binning=(10, 0.0, 0.2),
         x_title=r"$\mu$ 1 dxy",
+    )
+    config.add_variable(
+        name="cf_AutoGenMatchedVBFJets_eta",
+        expression="cutflow.AutoGenMatchedVBFJets_eta",
+        null_value=EMPTY_FLOAT,
+        binning=(30, 0.0, 8.5),
+        x_title=r"Gen Matched VBF Jets $\eta$",
     )

@@ -180,7 +180,8 @@ def genVBFPartonProducer(self: Producer, events: ak.Array, **kwargs) -> ak.Array
         attach_coffea_behavior,
     },
     produces={
-        "VBFtagging_results_auto", "VBFtagging_results_dr"
+        "VBFtagging_results_auto_1", "VBFtagging_results_dr_1",
+        "VBFtagging_results_auto_0", "VBFtagging_results_dr_0",
     },
 )
 def VBFtagging_efficiency(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -214,8 +215,35 @@ def VBFtagging_efficiency(self: Producer, events: ak.Array, **kwargs) -> ak.Arra
         f'1: {np.sum(np.where(VBFtagging_results_dr==1, 1, 0), axis=0)} ',
         f'2: {np.sum(np.where(VBFtagging_results_dr==2, 1, 0), axis=0)} '
     )
-    events = set_ak_column_f32(events, "VBFtagging_results_auto", ak.fill_none(VBFtagging_results_auto, 0))
-    events = set_ak_column_f32(events, "VBFtagging_results_dr", ak.fill_none(VBFtagging_results_dr, 0))
+
+    VBFtagging_results_auto_1 = ak.fill_none(VBFtagging_results_auto, 0)
+    VBFtagging_results_dr_1 = ak.fill_none(VBFtagging_results_dr, 0)
+    VBFtagging_results_dr_0 = ak.where(VBFtagging_results_dr_1 == -1, 0, VBFtagging_results_auto_1)
+    VBFtagging_results_auto_0 = ak.where(VBFtagging_results_auto_1 == -1, 0, VBFtagging_results_auto_1)
+    events = set_ak_column_f32(events, "VBFtagging_results_auto_1", ak.fill_none(VBFtagging_results_auto, 0))
+    events = set_ak_column_f32(events, "VBFtagging_results_dr_1", VBFtagging_results_dr_1)
+    events = set_ak_column_f32(events, "VBFtagging_results_auto_0", VBFtagging_results_auto_0)
+    events = set_ak_column_f32(events, "VBFtagging_results_dr_0", VBFtagging_results_dr_0)
+
+    return events
+
+
+@producer(
+    uses={
+        "VBFJet.*",
+        attach_coffea_behavior,
+    },
+    produces={
+        "VBFPairsInEvent",
+
+    },
+)
+def VBFPairsInEvent(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    events = self[attach_coffea_behavior](events, collections={"VBFJet": {"type_name": "Jet"}}, **kwargs)
+
+    # Get events that have a VBF pair
+    num_VBFJets = ak.num(events.VBFJet.pt, axis=1) / 2
+    events = set_ak_column_f32(events, "VBFPairsInEvent", ak.fill_none(num_VBFJets, EMPTY_FLOAT))
 
     return events
 

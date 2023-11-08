@@ -116,9 +116,23 @@ def gen_HH_decay_product_idx_tau(self: Producer, events: ak.Array, **kwargs) -> 
 
         # fill None values with False
         mask = ak.fill_none(mask, False)
-        idx = idx[mask]
+        idx_all = idx[mask]
 
-        return idx
+        # get the proper Tau Parton decays
+        mask_proper = ak.any(abs(events.GenPart[idx_all].distinctChildren.pdgId) == 16, axis=-1)
+
+        # get the decay channel of ech Parton
+        mask_e = ak.any(abs(events.GenPart[idx_all].distinctChildren.pdgId) == 11, axis=-1)
+        mask_mu = ak.any(abs(events.GenPart[idx_all].distinctChildren.pdgId) == 13, axis=-1)
+        mask_had = ak.any(abs(events.GenPart[idx_all].distinctChildren.pdgId) > 22, axis=-1)
+        mask_e = np.logical_and(mask_proper, mask_e)
+        mask_mu = np.logical_and(mask_proper, mask_mu)
+        mask_had = np.logical_and(mask_proper, mask_had)
+        idx_e = idx_all[mask_e]
+        idx_mu = idx_all[mask_mu]
+        idx_had = idx_all[mask_had]
+
+        return [idx_all, idx_e, idx_mu, idx_had]
 
     return find_partons(events, 15, 25)
 
