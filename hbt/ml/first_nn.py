@@ -737,7 +737,6 @@ class SimpleDNN(MLModel):
             model = CombinedDeepSetNetwork(deepset_config, feedforward_config)
             tf_train = [[train[f'inputs_{self.train_sorting}'], train['inputs2']], train['target']]
             tf_validation = [[validation[f'inputs_{self.train_sorting}'], validation['inputs2']], validation['target']]
-        from IPython import embed; embed()
 
         activation_settings = {
             "elu": ("ELU", "he_uniform", "Dropout"),
@@ -757,7 +756,7 @@ class SimpleDNN(MLModel):
             loss="categorical_crossentropy",
             optimizer=optimizer,
             weighted_metrics=["categorical_accuracy"],
-            run_eagerly=True,
+            run_eagerly=False,
         )
 
         #
@@ -784,7 +783,6 @@ class SimpleDNN(MLModel):
             mode="auto",
             min_lr=0.01 * self.learningrate,
         )
-
         logger.info("input to tf Dataset")
         # .shuffle(buffer_size=len(train["inputs"], reshuffle_each_iteration=True).repeat(self.epochs).batch(self.batchsize)
         # with tf.device("CPU"):
