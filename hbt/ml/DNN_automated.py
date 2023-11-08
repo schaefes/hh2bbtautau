@@ -150,7 +150,8 @@ class DeepSet(tf.keras.Model):
             x = layer(x)
 
         # get number of jets per event, required for the mean aggregation layer
-        jet_num = tf.convert_to_tensor(np.sum(mask, axis=1), dtype=x.dtype)
+        mask_jet_num = tf.where(mask, 1., 0.)
+        jet_num = tf.convert_to_tensor(tf.math.reduce_sum(mask_jet_num, axis=1), dtype=x.dtype)
         jet_num = tf.expand_dims(jet_num, axis=1)
 
         # aggregations
