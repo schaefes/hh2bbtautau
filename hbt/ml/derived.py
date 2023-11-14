@@ -43,6 +43,7 @@ deepSets_inp = [f"{jet_collection}_{kin_var}" for kin_var in kinematic_inp]
 event_features = ["mbjetbjet", "mtautau", "mHH", f"{jet_collection}_ht", f"{jet_collection}_mjj",
                   f"{jet_collection}_mjj_dEta", f"{jet_collection}_max_dEta", f"{jet_collection}_njets"]
 projection_phi = [f"{jet_collection}_METphi"]
+four_vector = [f"{jet_collection}_{k}" for k in ["e", "px", "py", "pz", "phi", "eta"]]
 
 input_features = [deepSets_inp, event_features]
 no_norm_features = [f"{jet_collection}_ones", f"{jet_collection}_btag", f"{jet_collection}_btagCvL",
@@ -81,7 +82,7 @@ default_cls_dict = {
     "activation": "relu",  # Options: elu, relu, prelu, selu, tanh, softmax
     "learningrate": 0.01,
     "batchsize": 256,
-    "epochs": 150,
+    "epochs": 1,
     "eqweight": True,
     "dropout": 0.50,
     "processes": processes,
@@ -105,6 +106,7 @@ default_cls_dict = {
     "projection_phi": projection_phi,
     "resorting_feature": f"{jet_collection}_bFlavtag",
     "train_sorting": f"{jet_collection}_pt",
+    "pair_vectors": four_vector,
 }
 
 nodes_deepSets_op = default_cls_dict["baseline_jets"] * default_cls_dict["n_features"]
@@ -121,8 +123,8 @@ cls_dict["model_type"] = model_type
 cls_dict["model_name"] = f"{len(processes)}classes_{model_type}_masking_test"
 cls_dict["nodes_deepSets"] = nodes_deepSets
 cls_dict["nodes_ff"] = nodes_ff
-cls_dict["activation_func_deepSets"] = ["selu" for i in range(len(nodes_deepSets))]
-cls_dict["activation_func_ff"] = ["selu" for i in range(len(nodes_ff))]
+cls_dict["activation_func_deepSets"] = ["relu" for i in range(len(nodes_deepSets))]
+cls_dict["activation_func_ff"] = ["relu" for i in range(len(nodes_ff))]
 
 test_dnn = SimpleDNN.derive("test", cls_dict=cls_dict)
 

@@ -148,6 +148,7 @@ class DeepSet(tf.keras.Model):
         x = self.hidden_layers[0](inputs_masked)
         for layer in self.hidden_layers[1:]:
             x = layer(x)
+        from IPython import embed; embed()
 
         # get number of jets per event, required for the mean aggregation layer
         mask_jet_num = tf.where(mask, 1., 0.)

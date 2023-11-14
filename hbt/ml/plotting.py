@@ -628,10 +628,12 @@ def plot_feature_ranking_deep_sets(
     inp = tf.keras.layers.Input(shape=[concat_inp.shape[1], concat_inp.shape[2]])
     output = masking_model(inp)
     m = tf.keras.Model(inp, output)
-
     # calculate shap values
     subset_idx = 50
-    explainer = shap.KernelExplainer(m, concat_inp[:subset_idx])
+    from IPython import embed; embed()
+    shap.explainers._deep.deep_tf.op_handlers["AddV2"] = shap.explainers._deep.deep_tf.passthrough
+    shap.explainers._deep.deep_tf.op_handlers["FusedBatchNormV3"] = shap.explainers._deep.deep_tf.passthrough
+    explainer = shap.DeepExplainer(m, concat_inp[:subset_idx])
     shap_values = explainer.shap_values(concat_inp[-subset_idx:])
 
     # Plot Feature Ranking
@@ -640,7 +642,7 @@ def plot_feature_ranking_deep_sets(
     shap.summary_plot(shap_values, plot_type="bar",
         feature_names=features_list, class_names=class_list, show=False)
     plt.title('Feature Importance Ranking')
-    output.child("Feature_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
+    output.child("Feature_Ranking_DeepSets.pdf", type="f").dump(fig1, formatter="mpl")
 
 
 def plot_shap_baseline(

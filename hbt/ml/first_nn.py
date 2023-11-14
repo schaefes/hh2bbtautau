@@ -33,9 +33,50 @@ tf = maybe_import("tensorflow")
 pickle = maybe_import("pickle")
 keras = maybe_import("tensorflow.keras")
 sklearn = maybe_import("sklearn")
+it = maybe_import("itertools")
 # dotted_dict = maybe_import("dotted_dict")
 
 logger = law.logger.get_logger(__name__)
+
+
+def create_pairs(jets, pairs_dict, pais_input, replace_val, max_jets):
+    n_jets = (np.sum((jets != EMPTY_FLOAT), axis=1) / len(pais_input)).astype('i')
+    pairs_idx = list(map(pairs_dict.get, n_jets.tolist()))
+    jets_shaped = jets.reshape((len(n_jets), -1, len(pais_input)))
+    max_pairs = np.math.factorial(max_jets) / (2 * np.math.factorial(max_jets - 2))
+    pairs = np.full((len(n_jets), max_pairs, 2, len(pais_input)), -1.)
+    num_pairs = np.full_like(n_jets, 0)
+    for i in range(len(n_jets)):
+        pairs[i] = jets_shaped[i][pairs_idx[i]]
+        num = np.math.factorial(n_jets[i]) / (2 * np.math.factorial(n_jets[i] -2))
+        num_pairs[i] = num
+    four_vectors = np.sum(pairs[:, :, :, :4], axis=2)
+    e = four_vectors[:, :, 0]
+    # generate mask based on e that is applied to all,
+    # since all pairs (num of pairs per event equal for all)
+    masking_val = 2 * EMPTY_FLOAT
+    mask = (e != masking_val)
+    normed_e = np.where(mask, (e - np.mean(e[mask])) / np.std(e[mask]), replace_val)
+    pt = np.sqrt(four_vectors[:, :, 1]**2 + four_vectors[:, :, 2]**2)
+    normed_pt = np.where(mask, (pt - np.mean(pt[mask])) / np.std(pt[mask]), replace_val)
+    eta = np.arcsinh(four_vectors[:, :, 3] / pt)
+    normed_eta = np.where(mask, (eta - np.mean(eta[mask])) / np.std(eta[mask]), replace_val)
+    phi = np.arctan2(four_vectors[:, :, 2], four_vectors[:, :, 1])
+    normed_phi = np.where(mask, (phi - np.mean(phi[mask])) / np.std(phi[mask]), replace_val)
+    squared_p = four_vectors[:, :, 1]**2 + four_vectors[:, :, 2]**2 + four_vectors[:, :, 3]**2
+    mass = np.nan_to_num(np.sqrt(four_vectors[:, :, 0]**2 - squared_p))
+    normed_mass = np.where(mask, (mass - np.mean(mass[mask])) / np.std(mass[mask]), replace_val)
+    delta_eta = abs(pairs[:, :, 0, 4] - pairs[:, :, 1, 4])
+    normed_delta_eta = np.where(mask, (delta_eta - np.mean(delta_eta[mask])) / np.std(delta_eta[mask]), replace_val)
+    delta_phi = abs(pairs[:, :, 0, 5] - pairs[:, :, 1, 5])
+    normed_delta_phi = np.where(mask, (delta_phi - np.mean(delta_phi[mask])) / np.std(delta_phi[mask]), replace_val)
+    stacking = [normed_e, normed_mass, normed_pt, normed_eta, normed_phi, normed_delta_eta, normed_delta_phi]
+    pairs_inp = np.stack(stacking, axis=-1)
+    pairs_inp = tf.convert_to_tensor(pairs_inp)
+
+    return pairs_inp
+    # think about the empty value for the padded jets, such that it can bve used in reshape inputs 2
+    # think about how to concatenate all the values for the pair vector, should have shape (n events, 45, n features)
 
 
 def resort_jets(jet_input_shaped, jet_input_features, sorting_feature, masking_val):
@@ -318,7 +359,12 @@ class SimpleDNN(MLModel):
         return {config_inst.get_dataset(dataset_name) for dataset_name in self.dataset_names}
 
     def uses(self, config_inst: od.Config) -> set[Route | str]:
-        return {"normalization_weight", "category_ids", "predictions_graviton_hh_vbf_bbtautau_m400_madgraph_DeepSets"} | set(self.input_features[0]) | set(self.input_features[1]) | set(self.projection_phi)
+        return ({"normalization_weight", "category_ids"} |
+                set(self.input_features[0]) |
+                set(self.input_features[1]) |
+                set(self.projection_phi) |
+                {"CustomVBFMaskJets2_px", "CustomVBFMaskJets2_py", "CustomVBFMaskJets2_pz"})
+
 
     def produces(self, config_inst: od.Config) -> set[Route | str]:
         produced = set()
@@ -383,6 +429,14 @@ class SimpleDNN(MLModel):
         # set seed for shuffeling for reproducebility
         np.random.seed(1337)
         tf.random.set_seed(1337)
+
+        self.pairs_dict = {}
+        for i in range(2, 11, 1):
+            padded_idx = np.full([45, 2], -1)
+            idx = list(it.combinations(np.arange(0, i, 1), r=2))
+            idx = np.array(idx)
+            padded_idx[:len(idx), :] = idx
+            self.pairs_dict[i] = padded_idx
 
         if self.quantity_weighting:
             # properly define the ml_process_weights through the number of events per dataset
@@ -501,6 +555,7 @@ class SimpleDNN(MLModel):
 
                 # remove columns not used in training
                 projection_phi = events[self.projection_phi[0]]
+                events_pairs = events[self.pair_vectors]
                 for var in events.fields:
                     if var not in self.input_features[0] and var not in self.input_features[1]:
                         print(f"removing column {var}")
@@ -522,6 +577,9 @@ class SimpleDNN(MLModel):
 
                 # reshape raw inputs
                 events = reshape_raw_inputs1(events, self.n_features, self.input_features[0], projection_phi)
+                events_pairs = reshape_raw_inputs1(events_pairs, len(self.pair_vectors), self.pair_vectors, projection_phi)
+                create_pairs(events_pairs, self.pairs_dict, self.pair_vectors)
+                from IPython import embed; embed()
                 events2 = reshape_raw_inputs2(events2)
 
                 # create the truth values for the output layer
@@ -623,7 +681,7 @@ class SimpleDNN(MLModel):
                 train['prediction'] = call_func_safe(model, [train[f'inputs_{self.train_sorting}'], train['inputs2']])
                 validation['prediction'] = call_func_safe(model, [validation[f'inputs_{self.train_sorting}'], validation['inputs2']])
                 # plot shap for Deep Sets
-                # call_func_safe(plot_feature_ranking_deep_sets, masking_model, train, output, self.process_insts, self.target_dict, feature_names, self.train_sorting)
+                call_func_safe(plot_feature_ranking_deep_sets, masking_model, train, output, self.process_insts, self.target_dict, feature_names, self.train_sorting)
                 # call_func_safe(plot_shap_values_deep_sets_mean, model, train, output, self.process_insts, self.target_dict, feature_names, self.train_sorting)
                 # call_func_safe(plot_shap_values_deep_sets, model, train, output, self.process_insts, self.target_dict, feature_names, self.train_sorting)
                 # call_func_safe(plot_shap_values_deep_sets_sum, model, train, output, self.process_insts, self.target_dict, feature_names, self.train_sorting)
@@ -737,7 +795,6 @@ class SimpleDNN(MLModel):
             model = CombinedDeepSetNetwork(deepset_config, feedforward_config)
             tf_train = [[train[f'inputs_{self.train_sorting}'], train['inputs2']], train['target']]
             tf_validation = [[validation[f'inputs_{self.train_sorting}'], validation['inputs2']], validation['target']]
-        from IPython import embed; embed()
 
         activation_settings = {
             "elu": ("ELU", "he_uniform", "Dropout"),
@@ -834,7 +891,7 @@ class SimpleDNN(MLModel):
             slice_idx = tf_train[0][0].shape[2]
             masking_model = ShapMasking(slice_idx, model)
             self.instant_evaluate(task, model, masking_model, self.input_features, self.processes, self.train_sorting, train, validation, output)
-            self.instant_evaluate(task, model, masking_model, self.input_features, self.processes, self.resorting_feature, train, validation, output)
+            # self.instant_evaluate(task, model, masking_model, self.input_features, self.processes, self.resorting_feature, train, validation, output)
         write_info_file(output, self.aggregations, self.nodes_deepSets, self.nodes_ff,
             self.n_output_nodes, self.batch_norm_deepSets, self.batch_norm_ff, self.input_features,
             self.process_insts, self.activation_func_deepSets, self.activation_func_ff, self.learningrate,
