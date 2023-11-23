@@ -48,12 +48,14 @@ def dEta_and_inv_mass(events_jetcollection, n_jets):
     n_events = len(deta_table)
     max_dEta_vals = np.zeros(n_events)
     inv_mass_vals = np.zeros(n_events)
+    max_inv_mass_vals = np.zeros(n_events)
     for i, deta_matrix in enumerate(deta_table):
         if n_jets[i] < 2:
             max_dEta_vals[i] = EMPTY_FLOAT
             inv_mass_vals[i] = EMPTY_FLOAT
         else:
             max_ax0 = ak.max(deta_matrix, axis=0)
+            max_mjj = ak.max(inv_mass_table[i])
             argmax_ax0 = ak.argmax(deta_matrix, axis=0)
             max_idx1 = ak.argmax(max_ax0)
             max_idx0 = argmax_ax0[max_idx1]
@@ -61,10 +63,12 @@ def dEta_and_inv_mass(events_jetcollection, n_jets):
             inv_mass_val = inv_mass_table[i][max_idx0, max_idx1]
             max_dEta_vals[i] = max_dEta
             inv_mass_vals[i] = inv_mass_val
+            max_inv_mass_vals[i] = max_mjj
     max_dEta_vals = ak.from_numpy(max_dEta_vals)
     inv_mass_vals = ak.from_numpy(inv_mass_vals)
+    max_inv_mass_vals = ak.from_numpy(max_inv_mass_vals)
 
-    return max_dEta_vals, inv_mass_vals
+    return max_dEta_vals, inv_mass_vals, max_inv_mass_vals
 
 
 # Producers
@@ -374,9 +378,10 @@ def kinematic_vars_vbfmaskjets(self: Producer, events: ak.Array, **kwargs) -> ak
     max_njets = np.max(n_jets)
 
     # Get max dEta and the corresponing invariant mass
-    max_dEta, inv_mass_dEta = dEta_and_inv_mass(events.VBFMaskJets, n_jets)
+    max_dEta, inv_mass_dEta, max_inv_mass_vals = dEta_and_inv_mass(events.VBFMaskJets, n_jets)
     events = set_ak_column(events, "VBFMaskJets_max_dEta", ak.fill_none(max_dEta, EMPTY_FLOAT))
     events = set_ak_column(events, "VBFMaskJets_mjj_dEta", ak.fill_none(inv_mass_dEta, EMPTY_FLOAT))
+    events = set_ak_column(events, "VBFMaskJets_mjj", ak.fill_none(max_inv_mass_vals, EMPTY_FLOAT))
 
     # use padded jets only for all following operations
     events = set_ak_column(events, "VBFMaskJets", ak.pad_none(events.VBFMaskJets, max_njets))
@@ -435,10 +440,6 @@ def kinematic_vars_vbfmaskjets(self: Producer, events: ak.Array, **kwargs) -> ak
     jets_e = ak.fill_none(jets_e, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "VBFMaskJets_e", jets_e)
 
-    # Calculate maximum invariant mass
-    mjj = (events.Jet[:, 0] + events.Jet[:, 1]).mass
-    events = set_ak_column(events, "VBFMaskJets_mjj", ak.fill_none(mjj, EMPTY_FLOAT))
-
     return events
 
 
@@ -469,9 +470,10 @@ def kinematic_vars_customvbfmaskjets(self: Producer, events: ak.Array, **kwargs)
     max_njets = np.max(n_jets)
 
     # Get max dEta and the corresponing invariant mass
-    max_dEta, inv_mass_dEta = dEta_and_inv_mass(events.CustomVBFMaskJets, n_jets)
+    max_dEta, inv_mass_dEta, max_inv_mass_vals = dEta_and_inv_mass(events.CustomVBFMaskJets, n_jets)
     events = set_ak_column(events, "CustomVBFMaskJets_max_dEta", ak.fill_none(max_dEta, EMPTY_FLOAT))
     events = set_ak_column(events, "CustomVBFMaskJets_mjj_dEta", ak.fill_none(inv_mass_dEta, EMPTY_FLOAT))
+    events = set_ak_column(events, "CustomVBFMaskJets_mjj", ak.fill_none(max_inv_mass_vals, EMPTY_FLOAT))
 
     # use padded jets only for all following operations
     events = set_ak_column(events, "CustomVBFMaskJets", ak.pad_none(events.CustomVBFMaskJets, max_njets))
@@ -542,10 +544,6 @@ def kinematic_vars_customvbfmaskjets(self: Producer, events: ak.Array, **kwargs)
     jets_e = ak.fill_none(jets_e, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "CustomVBFMaskJets_e", jets_e)
 
-    # Calculate maximum invariant mass
-    mjj = (events.Jet[:, 0] + events.Jet[:, 1]).mass
-    events = set_ak_column(events, "CustomVBFMaskJets_mjj", ak.fill_none(mjj, EMPTY_FLOAT))
-
     # save the met phi to use for projection of the jet phis
     events = set_ak_column_f32(events, "CustomVBFMaskJets_METphi", ak.fill_none(events.MET.phi, EMPTY_FLOAT))
 
@@ -582,9 +580,10 @@ def kinematic_vars_customvbfmaskjets2(self: Producer, events: ak.Array, **kwargs
     max_njets = np.max(n_jets)
 
     # Get max dEta and the corresponing invariant mass
-    max_dEta, inv_mass_dEta = dEta_and_inv_mass(events.CustomVBFMaskJets2, n_jets)
+    max_dEta, inv_mass_dEta, max_inv_mass_vals = dEta_and_inv_mass(events.CustomVBFMaskJets2, n_jets)
     events = set_ak_column(events, "CustomVBFMaskJets2_max_dEta", ak.fill_none(max_dEta, EMPTY_FLOAT))
     events = set_ak_column(events, "CustomVBFMaskJets2_mjj_dEta", ak.fill_none(inv_mass_dEta, EMPTY_FLOAT))
+    events = set_ak_column(events, "CustomVBFMaskJets2_mjj", ak.fill_none(max_inv_mass_vals, EMPTY_FLOAT))
 
     # use padded jets only for all following operations
     events = set_ak_column(events, "CustomVBFMaskJets2", ak.pad_none(events.CustomVBFMaskJets2, max_njets))
@@ -664,11 +663,6 @@ def kinematic_vars_customvbfmaskjets2(self: Producer, events: ak.Array, **kwargs
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_py", jets_py)
     jets_pz = ak.fill_none(p_z, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_pz", jets_pz)
-    from IPython import embed; embed()
-
-    # Calculate maximum invariant mass
-    mjj = (events.Jet[:, 0] + events.Jet[:, 1]).mass
-    events = set_ak_column(events, "CustomVBFMaskJets2_mjj", ak.fill_none(mjj, EMPTY_FLOAT))
 
     # save the met phi to use for projection of the jet phis
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_METphi", ak.fill_none(events.MET.phi, EMPTY_FLOAT))
