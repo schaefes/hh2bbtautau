@@ -121,12 +121,16 @@ class DenseBlock(tf.keras.layers.Layer):
 
 class DeepSet(tf.keras.Model):
 
-    def __init__(self, nodes, activations, aggregations, masking_val):
+    def __init__(self, nodes, activations, aggregations, masking_val, mean, std):
         super(DeepSet, self).__init__()
         self.aggregations = aggregations
         self.masking_val = masking_val
         self.hidden_layers = [DenseBlock(node, activation, deepset=True)
                               for node, activation in zip(nodes, activations)]
+
+        # mean and std for standardization
+        self.mean = mean
+        self.std = std
 
         # aggregation layers
         self.sum_layer = SumLayer()
@@ -143,12 +147,12 @@ class DeepSet(tf.keras.Model):
     def call(self, inputs):
         # compute mask based on he masking value in inputs
         mask = self.masking_layer.compute_mask(inputs)
+        inputs = (inputs - self.mean) / self.std
         inputs_masked = tf.ragged.boolean_mask(inputs, mask)
 
         x = self.hidden_layers[0](inputs_masked)
         for layer in self.hidden_layers[1:]:
             x = layer(x)
-        from IPython import embed; embed()
 
         # get number of jets per event, required for the mean aggregation layer
         mask_jet_num = tf.where(mask, 1., 0.)
@@ -185,13 +189,29 @@ class DeepSet(tf.keras.Model):
 
 class FeedForwardNetwork(tf.keras.Model):
 
-    def __init__(self, nodes, activations, n_classes):
+    def __init__(self, nodes, activations, n_classes, mean, std, combined=False):
         super(FeedForwardNetwork, self).__init__()
         self.hidden_layers = [DenseBlock(node, activation, deepset=False)
                               for node, activation in zip(nodes, activations)]
         self.output_layer = tf.keras.layers.Dense(n_classes, activation='softmax')
 
+        # mean and std for standardization
+        self.mean = mean
+        self.std = std
+        self.len_mean = len(mean)
+
+        self.combined = combined
+
     def call(self, inputs):
+        if self.combined:
+            mean = tf.zeros(inputs.shape[1] - self.len_mean)
+            std = tf.ones_like(mean)
+            mean = tf.concat((mean, self.mean), axis=0)
+            std = tf.concat((std, self.std), axis=0)
+            inputs = (inputs - mean) / std
+        else:
+            inputs = (inputs - self.mean) / self.std
+
         x = self.hidden_layers[0](inputs)
         # print('ff input:', inputs.shape)
         for layer in self.hidden_layers[1:]:
