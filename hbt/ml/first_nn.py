@@ -24,7 +24,7 @@ from hbt.ml.plotting import (
     write_info_file, plot_shap_baseline, plot_shap_values_deep_sets_mean,
     plot_feature_ranking_deep_sets, plot_shap_values_deep_sets_sum,
     plot_shap_values_deep_sets, plot_confusion2, check_distribution,
-    plot_roc_ovr2,
+    plot_roc_ovr2, feature_ranking_deep_sets_pp,
 )
 
 np = maybe_import("numpy")
@@ -43,7 +43,7 @@ def create_pairs(jets, pairs_dict, pais_input, replace_val, max_jets):
     n_jets = (np.sum((jets != EMPTY_FLOAT), axis=1) / len(pais_input)).astype('i')
     pairs_idx = list(map(pairs_dict.get, n_jets.tolist()))
     jets_shaped = jets.reshape((len(n_jets), -1, len(pais_input)))
-    max_pairs = np.math.factorial(max_jets) / (2 * np.math.factorial(max_jets - 2))
+    max_pairs = int(np.math.factorial(max_jets) / (2 * np.math.factorial(max_jets - 2)))
     pairs = np.full((len(n_jets), max_pairs, 2, len(pais_input)), -1.)
     num_pairs = np.full_like(n_jets, 0)
     for i in range(len(n_jets)):
@@ -163,7 +163,6 @@ def reshape_norm_inputs(events_dict, n_features, norm_features, input_features, 
         mean_feature1[i] = np.mean(events_shaped[:, i][mask_empty_floats])
         std_feature1[i] = np.std(events_shaped[:, i][mask_empty_floats])
 
-    std_feature1 = std_feature1 / 3
     mean_feature1[delete_standardization1] = 0
     std_feature1[delete_standardization1] = 1
 
@@ -231,6 +230,9 @@ def reshape_norm_inputs(events_dict, n_features, norm_features, input_features, 
 
     # reshape of target
     events_dict['target'] = tf.reshape(events_dict['target'], [-1, n_output_nodes])
+
+    # turn pairs inp into tf tensor
+    events_dict['pairs_inp'] = tf.convert_to_tensor(events_dict['pairs_inp'])
 
     return events_dict
 
@@ -429,7 +431,7 @@ class SimpleDNN(MLModel):
         # set seed for shuffeling for reproducebility
         np.random.seed(1337)
         tf.random.set_seed(1337)
-
+        from IPython import embed; embed()
         self.pairs_dict = {}
         for i in range(2, 11, 1):
             padded_idx = np.full([45, 2], -1)
@@ -578,8 +580,7 @@ class SimpleDNN(MLModel):
                 # reshape raw inputs
                 events = reshape_raw_inputs1(events, self.n_features, self.input_features[0], projection_phi)
                 events_pairs = reshape_raw_inputs1(events_pairs, len(self.pair_vectors), self.pair_vectors, projection_phi)
-                create_pairs(events_pairs, self.pairs_dict, self.pair_vectors)
-                from IPython import embed; embed()
+                pairs_inp = create_pairs(events_pairs, self.pairs_dict, self.pair_vectors, self.masking_val, 10)
                 events2 = reshape_raw_inputs2(events2)
 
                 # create the truth values for the output layer
@@ -591,6 +592,7 @@ class SimpleDNN(MLModel):
                     DNN_inputs["weights"] = weights
                     DNN_inputs["inputs"] = events
                     DNN_inputs["inputs2"] = events2
+                    DNN_inputs["pairs_inp"] = pairs_inp
                     DNN_inputs["target"] = target
                 else:
                     # check max number of jets of datasets and append EMPTY_FLOAT columns if necessary
@@ -606,6 +608,7 @@ class SimpleDNN(MLModel):
                     DNN_inputs["weights"] = np.concatenate([DNN_inputs["weights"], weights])
                     DNN_inputs["inputs"] = np.concatenate([DNN_inputs["inputs"], events])
                     DNN_inputs["inputs2"] = np.concatenate([DNN_inputs["inputs2"], events2])
+                    DNN_inputs["pairs_inp"] = np.concatenate([DNN_inputs["pairs_inp"], pairs_inp], axis=0)
                     DNN_inputs["target"] = np.concatenate([DNN_inputs["target"], target])
             logger.debug(f"   weights: {weights[:5]}")
             logger.debug(f"   Sum NN weights: {sum_nnweights}")
@@ -685,7 +688,10 @@ class SimpleDNN(MLModel):
                 # call_func_safe(plot_shap_values_deep_sets_mean, model, train, output, self.process_insts, self.target_dict, feature_names, self.train_sorting)
                 # call_func_safe(plot_shap_values_deep_sets, model, train, output, self.process_insts, self.target_dict, feature_names, self.train_sorting)
                 # call_func_safe(plot_shap_values_deep_sets_sum, model, train, output, self.process_insts, self.target_dict, feature_names, self.train_sorting)
-
+            elif self.model_type == "DeepSetsPP":
+                train['prediction'] = call_func_safe(model, [train[f'inputs_{self.train_sorting}'], train['pairs_inp'], train['inputs2']])
+                validation['prediction'] = call_func_safe(model, [validation[f'inputs_{self.train_sorting}'], validation['pairs_inp'], validation['inputs2']])
+                call_func_safe(feature_ranking_deep_sets_pp, model, train, output, self.process_insts, self.target_dict, feature_names)
             # make some plots of the history
             call_func_safe(plot_accuracy, model.history.history, output)
             call_func_safe(plot_loss, model.history.history, output)
@@ -701,17 +707,14 @@ class SimpleDNN(MLModel):
         # create some confusion matrices
         call_func_safe(plot_confusion, sorting, model, train, output, "train", self.process_insts)
         call_func_safe(plot_confusion, sorting, model, validation, output, "validation", self.process_insts)
-        call_func_safe(plot_confusion2, sorting, model, validation, output, "validation", self.process_insts)
 
         # create some ROC curves
         call_func_safe(plot_roc_ovr, sorting, train, output, "train", self.process_insts)
         call_func_safe(plot_roc_ovr, sorting, validation, output, "validation", self.process_insts)
-        call_func_safe(plot_roc_ovr2, sorting, validation, output, "validation", self.process_insts)
 
         # create plots for all output nodes + Significance for each node
         call_func_safe(plot_output_nodes, sorting, model, train, validation, output, self.process_insts)
         call_func_safe(plot_significance, sorting, model, train, validation, output, self.process_insts)
-
 
     def train(
         self,
@@ -724,6 +727,7 @@ class SimpleDNN(MLModel):
         tf.random.set_seed(1337)
         # Load Custom Model
         from hbt.ml.DNN_automated import CombinedDeepSetNetwork, BaseLineFF, ShapMasking
+        from hbt.ml.DNN_pairs_parallel import CombinedDeepSetPairsParallelNetwork
         physical_devices = tf.config.list_physical_devices("GPU")
         try:
             tf.config.experimental.set_memory_growth(physical_devices[0], True)
@@ -757,33 +761,21 @@ class SimpleDNN(MLModel):
             evalu_dict[f'{proc}'] = [self.target_dict[f'{proc}'], self.process_insts[i].label]
         output.child(f"evalu_dict.json", type="f").dump(self.target_dict, formatter="json")
 
-        # check for infinite values
-        # for key in train.keys():
-        #     if np.any(~np.isfinite(train[key])):
-        #         raise Exception(f"Infinite values found in training {key}")
-        #     if np.any(~np.isfinite(validation[key])):
-        #         raise Exception(f"Infinite values found in validation {key}")
-
         gc.collect()
         logger.info("garbage collected")
 
         #
-        # model preparation
+        # model preparations
         #
-
-        # from keras.layers import Dense, BatchNormalization
-
-        # define the DNN model
-        # TODO: do this Funcional instead of Sequential
-        # string to call custom layers: Sum, Max, Min, Mean, Var, Std
-        # give list of strs to choose layers
 
         # configureations for Deep Sets and FF Network
         # min_deepSets_nodes = train[f'inputs_{self.train_sorting}'].shape[1]
         # deepSets_nodes = self.nodes_deepSets
         # deepSets_nodes[-1] = min_deepSets_nodes + 2 * len(self.input_features[0])
-        deepset_config = {'nodes': self.nodes_deepSets, 'activations': self.activation_func_deepSets,
-            'aggregations': self.aggregations, 'masking_val': self.masking_val}
+        deepset_config_jets = {'nodes': self.nodes_deepSets, 'activations': self.activation_func_deepSets,
+            'aggregations': self.aggregations, 'masking_val': self.masking_val, 'inp_type': 'Jets'}
+        deepset_config_pairs = {'nodes': self.nodes_deepSets, 'activations': self.activation_func_deepSets,
+            'aggregations': self.aggregations, 'masking_val': self.masking_val, 'inp_type': 'Pairs'}
         feedforward_config = {'nodes': self.nodes_ff, 'activations': self.activation_func_ff,
             'n_classes': self.n_output_nodes}
 
@@ -791,10 +783,14 @@ class SimpleDNN(MLModel):
             model = BaseLineFF(feedforward_config)
             tf_train = [train[f'input_jets_baseline_{self.train_sorting}'], train['target']]
             tf_validation = [validation[f'input_jets_baseline_{self.train_sorting}'], validation['target']]
-        else:
-            model = CombinedDeepSetNetwork(deepset_config, feedforward_config)
+        elif self.model_type == "DeepSets":
+            model = CombinedDeepSetNetwork(deepset_config_jets, feedforward_config)
             tf_train = [[train[f'inputs_{self.train_sorting}'], train['inputs2']], train['target']]
             tf_validation = [[validation[f'inputs_{self.train_sorting}'], validation['inputs2']], validation['target']]
+        elif self.model_type == "DeepSetsPP":
+            model = CombinedDeepSetPairsParallelNetwork(deepset_config_jets, deepset_config_pairs, feedforward_config)
+            tf_train = [[train[f'inputs_{self.train_sorting}'], train['pairs_inp'], train['inputs2']], train['target']]
+            tf_validation = [[validation[f'inputs_{self.train_sorting}'], validation['pairs_inp'], validation['inputs2']], validation['target']]
 
         activation_settings = {
             "elu": ("ELU", "he_uniform", "Dropout"),
@@ -814,7 +810,7 @@ class SimpleDNN(MLModel):
             loss="categorical_crossentropy",
             optimizer=optimizer,
             weighted_metrics=["categorical_accuracy"],
-            run_eagerly=True,
+            run_eagerly=False,
         )
 
         #
@@ -886,12 +882,12 @@ class SimpleDNN(MLModel):
             # pass the same model twice, the second is used as a filler since two different models need
             # to be passed for Deep Sets
             self.instant_evaluate(task, model, model, self.input_features, self.processes, self.train_sorting, train, validation, output)
-            self.instant_evaluate(task, model, model, self.input_features, self.processes, self.resorting_feature, train, validation, output)
         elif self.model_type == "DeepSets":
             slice_idx = tf_train[0][0].shape[2]
             masking_model = ShapMasking(slice_idx, model)
             self.instant_evaluate(task, model, masking_model, self.input_features, self.processes, self.train_sorting, train, validation, output)
-            # self.instant_evaluate(task, model, masking_model, self.input_features, self.processes, self.resorting_feature, train, validation, output)
+        elif self.model_type == "DeepSetsPP":
+            self.instant_evaluate(task, model, model, self.input_features, self.processes, self.train_sorting, train, validation, output)
         write_info_file(output, self.aggregations, self.nodes_deepSets, self.nodes_ff,
             self.n_output_nodes, self.batch_norm_deepSets, self.batch_norm_ff, self.input_features,
             self.process_insts, self.activation_func_deepSets, self.activation_func_ff, self.learningrate,

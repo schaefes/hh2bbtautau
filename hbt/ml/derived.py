@@ -5,7 +5,12 @@ ML models derived from the *SimpleDNN* class
 """
 
 
-from hbt.ml.first_nn import SimpleDNN
+from hbt.ml.first_nn_norm_layer import SimpleDNN
+from columnflow.util import maybe_import
+
+math = maybe_import("math")
+it = maybe_import("itertools")
+np = maybe_import("numpy")
 
 
 processes = [
@@ -29,27 +34,47 @@ dataset_names = {
     # "graviton_hh_ggf_bbtautau_m1250_madgraph",
 }
 
-# feature_list = ["pt", "eta", "phi", "mass", "e", "btag", "hadronFlavour"]
-
-# input_features = [
-#     [f"{obj}_{var}"
-#     for obj in [f"jet{i}" for i in range(1, 7, 1)]
-#     for var in feature_list],
-#     ["mjj", "mbjetbjet", "mtautau", "mHH"]]
 jet_collection = "CustomVBFMaskJets2"
 kinematic_inp = ["e", "mass", "pt", "eta", "phi", "btag", "btagCvL", "btagCvB",
                  "bFlavtag", "bFlavtagCvL", "bFlavtagCvB", "btagQG"]
 deepSets_inp = [f"{jet_collection}_{kin_var}" for kin_var in kinematic_inp]
-event_features = ["mbjetbjet", "mtautau", "mHH", f"{jet_collection}_ht", f"{jet_collection}_mjj",
-                  f"{jet_collection}_mjj_dEta", f"{jet_collection}_max_dEta", f"{jet_collection}_njets"]
+
+event_level_inp = ["mbb", "mHH", "mtautau", "mjj", "ht", "mjj_dEta", "max_dEta", "njets"]
+event_features = [f"{jet_collection}_{feature}" for feature in event_level_inp]
 projection_phi = [f"{jet_collection}_METphi"]
-four_vector = [f"{jet_collection}_{k}" for k in ["e", "px", "py", "pz", "phi", "eta"]]
+# DO NOT  SWITCH THE ORDER IN four_vector,  ONLY APPEND NEW AT THE END. THE COULUMS ARE EXPLICETELY
+# ADRESSED BY INDEX IN THE create_pairs FUNCTION
+four_vector = [f"{jet_collection}_{k}" for k in ["e", "px", "py", "pz", "phi", "eta", "btag",
+               "btagCvL", "btagCvB", "bFlavtag", "bFlavtagCvL", "bFlavtagCvB", "btagQG"]]
 
 input_features = [deepSets_inp, event_features]
 no_norm_features = [f"{jet_collection}_ones", f"{jet_collection}_btag", f"{jet_collection}_btagCvL",
                     f"{jet_collection}_btagQG", f"{jet_collection}_bFlavtag",
                     f"{jet_collection}_bFlavtagCvL", f"{jet_collection}_bFlavtagCvB",
                     f"{jet_collection}_btagCvB"]
+
+latex_dict = {
+    f"{jet_collection}_e": "Energy",
+    f"{jet_collection}_mass": "Mass",
+    f"{jet_collection}_pt": r"$p_{T}$",
+    f"{jet_collection}_eta": r"$\eta$",
+    f"{jet_collection}_phi": r"$\phi$",
+    f"{jet_collection}_btag": "Deep B",
+    f"{jet_collection}_bFlavtag": "Deep Flav B",
+    f"{jet_collection}_btagCvL": "Deep CvL",
+    f"{jet_collection}_bFlavtagCvL": "Deep Flav CvL",
+    f"{jet_collection}_btagCvL": "Deep CvB",
+    f"{jet_collection}_bFlavtagCvL": "Deep Flav CvB",
+    f"{jet_collection}_btagQG": "Deep Flav QG",
+    f"{jet_collection}_mbb": r"$m_{\bar{b}b}$",
+    f"{jet_collection}_mHH": r"$m_{HH}$",
+    f"{jet_collection}_mtautau": r"$m_{\tau^{+} \tau^{-}}$",
+    f"{jet_collection}_mjj": r"$m_{JJ}$",
+    f"{jet_collection}_ht": "HT",
+    f"{jet_collection}_max_dEta": r"max $\Delta \eta$",
+    f"{jet_collection}_mjj_dEta": r"$m_{JJ}$ to max $\Delta \eta$",
+    f"{jet_collection}_njets": "N Jets",
+}
 
 # mask a copy of deepSets and events_features inp to make sure that input features remain unchanged
 # when removing list elements that are not supposed to be normalized
@@ -64,6 +89,15 @@ for no_norm in no_norm_features:
 
 norm_features = [deepSets_inp_copy, event_features_copy]
 
+# Create dict for the pair idx
+pairs_dict_pad = {}
+for i in range(2, 11, 1):
+    padded_idx = np.full([45, 2], -1)
+    idx = list(it.combinations(np.arange(0, i, 1), r=2))
+    idx = np.array(idx)
+    padded_idx[:len(idx), :] = idx
+    pairs_dict_pad[i] = padded_idx
+
 # Decide on dummy or proper btag of jets: If proper chosen coment out 4 lines below
 # for i, name in enumerate(input_features[0]):
 #     if name == 'jet1_btag' or name == 'jet2_btag':
@@ -75,6 +109,8 @@ norm_features = [deepSets_inp_copy, event_features_copy]
 # baseline_jets: max number of jets considered
 # model_type: baseline-> baselie model used else deepsets
 # quantity_weighting: weighting of the processes accroding to the amount of samples for each samples
+baseline_jets = 4
+baseline_pairs = int(math.factorial(baseline_jets) / (2 * math.factorial(baseline_jets - 2)))
 default_cls_dict = {
     "folds": 10,
     # "max_events": 10**6,  # TODO
@@ -82,7 +118,7 @@ default_cls_dict = {
     "activation": "relu",  # Options: elu, relu, prelu, selu, tanh, softmax
     "learningrate": 0.01,
     "batchsize": 256,
-    "epochs": 1,
+    "epochs": 150,
     "eqweight": True,
     "dropout": 0.50,
     "processes": processes,
@@ -95,41 +131,41 @@ default_cls_dict = {
     "batch_norm_deepSets": True,
     "batch_norm_ff": True,
     "aggregations": ["Sum", "Max", "Mean"],
+    "aggregations_pairs": ["Sum", "Max", "Mean"],
     "L2": False,
     "norm_features": norm_features,
-    "empty_overwrite": "1",
     "quantity_weighting": True,
     "jet_num_cut": 1,
-    "baseline_jets": 4,
+    "baseline_jets": baseline_jets,
+    "baseline_pairs": baseline_pairs,
     "jet_collection": jet_collection,
-    "masking_val": -2222,
+    "masking_val": -5,
     "projection_phi": projection_phi,
     "resorting_feature": f"{jet_collection}_bFlavtag",
     "train_sorting": f"{jet_collection}_pt",
     "pair_vectors": four_vector,
+    "pairs_dict_pad": pairs_dict_pad,
+    "latex_dict": latex_dict,
 }
 
 nodes_deepSets_op = default_cls_dict["baseline_jets"] * default_cls_dict["n_features"]
 nodes_deepSets = [80, 60, 60, nodes_deepSets_op]
 nodes_ff = [256, 256, 256, 256, 256, 256]
 
-# derived model, usable on command line
-default_dnn = SimpleDNN.derive("default", cls_dict=default_cls_dict)
 
 # test model settings
-model_type = "DeepSets" # choose str "baseline" for baseline nn or "DeepSets"
+# choose str "baseline", "baseline_pairs", "DeepSets", "DeepSetsPP", "DeepSetsPS"
+model_type = "DeepSetsPP"
+# chose what kind of sequential DS mode is used: "sum", "concat", "two_inp"
+sequential_mode = "concat"
 cls_dict = default_cls_dict
 cls_dict["model_type"] = model_type
-cls_dict["model_name"] = f"{len(processes)}classes_{model_type}_masking_test"
+cls_dict["model_name"] = f"{len(processes)}classes_{model_type}_2"
+cls_dict["sequential_mode"] = sequential_mode
 cls_dict["nodes_deepSets"] = nodes_deepSets
+cls_dict["nodes_deepSets_pairs"] = nodes_deepSets
 cls_dict["nodes_ff"] = nodes_ff
-cls_dict["activation_func_deepSets"] = ["relu" for i in range(len(nodes_deepSets))]
-cls_dict["activation_func_ff"] = ["relu" for i in range(len(nodes_ff))]
+cls_dict["activation_func_deepSets"] = ["selu" for i in range(len(nodes_deepSets))]
+cls_dict["activation_func_ff"] = ["selu" for i in range(len(nodes_ff))]
 
 test_dnn = SimpleDNN.derive("test", cls_dict=cls_dict)
-
-# 2classes_vbfjets_dr_inv_mass
-# 2classes_vbfjets
-# 3classes_vbfjets
-# 3classes_vbfjets_dr_inv_mass
-# 3classes_no_vbf

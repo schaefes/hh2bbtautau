@@ -64,6 +64,27 @@ class CreatePairsSum(tf.keras.layers.Layer):
         return pairs_sum, pairs_num
 
 
+class CreatePairsSecondInput(tf.keras.layers.Layer):
+    def call(self, inputs_ds, inputs_pairs, dict_vals, jet_num):
+        dtype_agg = inputs_ds.dtype
+        jet_num = tf.cast(jet_num, dtype=tf.int32)
+        pair_idx = tf.gather(dict_vals, jet_num - 2)
+        mask = tf.where(pair_idx == -1, False, True)
+        pair_idx = tf.where(pair_idx == -1, tf.constant([0], dtype=pair_idx.dtype)[0], pair_idx)
+        pairs = tf.gather(inputs_ds, pair_idx, batch_dims=1)
+        mask = mask[:, :, 0]
+        pairs_sum = tf.reduce_sum(pairs, axis=2)
+        pairs_concat = tf.concat((pairs_sum, inputs_pairs), axis=2)
+        pairs_ragged = tf.ragged.boolean_mask(pairs_concat, mask)
+
+        # get the number of pairs and shape/cast the tensor accordingly for the aggregation func
+        pairs_num = tf.math.reduce_sum(tf.where(mask, 1, 0), axis=1)
+        pairs_num = tf.expand_dims(pairs_num, axis=1)
+        pairs_num = tf.cast(pairs_num, dtype=dtype_agg)
+
+        return pairs_ragged, pairs_num
+
+
 class CreatePairsConcat(tf.keras.layers.Layer):
     def call(self, inputs, dict_vals, jet_num):
         dtype_agg = inputs.dtype
@@ -158,7 +179,7 @@ class DenseBlock(tf.keras.layers.Layer):
 
 class DeepSet(tf.keras.Model):
 
-    def __init__(self, nodes, activations, aggregations, masking_val, mean, std, dict_vals):
+    def __init__(self, nodes, activations, aggregations, masking_val, mean_jets, std_jets, mean_pairs, std_pairs, dict_vals, sequential_mode):
         super(DeepSet, self).__init__()
         self.aggregations = aggregations
         self.masking_val = masking_val
@@ -168,8 +189,11 @@ class DeepSet(tf.keras.Model):
                               for node, activation in zip(nodes, activations)]
 
         # mean and std for standardization
-        self.mean = mean
-        self.std = std
+        self.mean_jets = mean_jets
+        self.std_jets = std_jets
+
+        self.mean_pairs = mean_pairs
+        self.std_pairs = std_pairs
 
         # aggregation layers
         self.sum_layer = SumLayer()
@@ -184,18 +208,26 @@ class DeepSet(tf.keras.Model):
         self.masking_layer = tf.keras.layers.Masking(mask_value=masking_val)
 
         # pair craetion layer
+        self.create_pairs_sum = CreatePairsSum()
         self.create_pairs_concat = CreatePairsConcat()
+        self.create_pairs_second_input = CreatePairsSecondInput()
 
         # index dictionary for the pair indices
         self.dict_vals = dict_vals
 
+        # parameter deciding on the sequential mode
+        self.sequential_mode = sequential_mode
+
     def call(self, inputs):
         # compute mask based on he masking value in inputs
-        mask = self.masking_layer.compute_mask(inputs)
-        inputs = (inputs - self.mean) / self.std
-        inputs_masked = tf.ragged.boolean_mask(inputs, mask)
+        inputs_jets, pairs_inp = inputs
+        mask = self.masking_layer.compute_mask(inputs_jets)
+        inputs_jets = (inputs_jets - self.mean_jets) / self.std_jets
+        inputs_jets_masked = tf.ragged.boolean_mask(inputs_jets, mask)
 
-        x = self.hidden_layers1[0](inputs_masked)
+        pairs_inp = (pairs_inp - self.mean_pairs) / self.std_pairs
+
+        x = self.hidden_layers1[0](inputs_jets_masked)
         for layer in self.hidden_layers1[1:]:
             x = layer(x)
 
@@ -203,7 +235,13 @@ class DeepSet(tf.keras.Model):
         mask_jet_num = tf.where(mask, 1., 0.)
         jet_num = tf.convert_to_tensor(tf.math.reduce_sum(mask_jet_num, axis=1), dtype=x.dtype)
 
-        pairs, pairs_num = self.create_pairs_concat(x, self.dict_vals, jet_num)
+        # Decise on what type of seuqntial mode, input the second DS receives
+        if self.sequential_mode == "concat":
+            pairs, pairs_num = self.create_pairs_concat(x, self.dict_vals, jet_num)
+        elif self.sequential_mode == "sum":
+            pairs, pairs_num = self.create_pairs_sum(x, self.dict_vals, jet_num)
+        elif self.sequential_mode == "two_inp":
+            pairs, pairs_num = self.create_pairs_second_input(x, pairs_inp, self.dict_vals, jet_num)
         jet_num = tf.expand_dims(jet_num, axis=1)
 
         y = self.hidden_layers2[0](pairs)

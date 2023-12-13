@@ -81,10 +81,10 @@ def create_pairs(jets, pairs_dict, pais_input, masking_val, max_jets):
     events_idx = np.arange(pairs_inp.shape[0])
     events_idx = events_idx.reshape(len(events_idx), -1)
     # sort the pairs for highest pt
-    pairs_inp = pairs_inp[events_idx, sorting]
+    pairs_inp_sorted = pairs_inp[events_idx, sorting]
     # pairs_inp = tf.convert_to_tensor(pairs_inp)
 
-    return pairs_inp, features_pairs
+    return pairs_inp, pairs_inp_sorted, features_pairs
 
 
 def resort_jets(jet_input_shaped, jet_input_features, sorting_feature, masking_val):
@@ -207,10 +207,12 @@ def reshape_norm_inputs(events_dict, norm_features, input_features, n_op_nodes, 
     pairs_inp_masked = np.where(pairs_inp == masking_val, np.nan, pairs_inp)
     mean_pairs = np.nanmean(pairs_inp_masked, axis=0)
     std_pairs = np.nanstd(pairs_inp_masked, axis=0)
+    # preserve original order for the concatenation of the pairs inp and the DS output
     events_dict["pairs_inp"] = tf.convert_to_tensor(events_dict["pairs_inp"], dtype=tf_dtype)
 
     """prepare the inputs for the baseline pairs NN. Reuse mean and std of jets and inputs2."""
-    baseline_inp_pairs = events_dict["pairs_inp"][:, :baseline_pairs, :].numpy()
+    # seperate sorted pairs for the baseline pairs nn
+    baseline_inp_pairs = events_dict["pairs_inp_sorted"][:, :baseline_pairs, :]
     baseline_inp_pairs = np.reshape(baseline_inp_pairs, (baseline_inp_pairs.shape[0], -1))
     baseline_inp_pairs = np.concatenate((jets_baseline, baseline_inp_pairs, inputs2), axis=1)
     mean_baseline_pairs = np.concatenate((np.tile(mean_jets, baseline_jets), np.tile(mean_pairs, baseline_pairs), mean_inputs2))
@@ -363,6 +365,7 @@ class SimpleDNN(MLModel):
             produced.add(f"{self.cls_name}.target_label_{proc}__{self.model_name}")
             produced.add(f"{self.cls_name}.events_weights_{proc}__{self.model_name}")
             for i in range(self.folds):
+                produced.add(f"{self.cls_name}.pred_fold_{i}_{proc}__{self.model_name}")
                 produced.add(f"{self.cls_name}.pred_model_{proc}_fold{i}__{self.model_name}")
                 produced.add(f"{self.cls_name}.DeepSetsInpPt_{proc}_fold{i}__{self.model_name}")
                 produced.add(f"{self.cls_name}.DeepSetsInpEta_{proc}_fold{i}__{self.model_name}")
@@ -564,7 +567,7 @@ class SimpleDNN(MLModel):
                 # reshape raw inputs
                 events = reshape_raw_inputs1(events, self.n_features, self.input_features[0], projection_phi)
                 events_pairs = reshape_raw_inputs1(events_pairs, len(self.pair_vectors), self.pair_vectors, projection_phi)
-                pairs_inp, features_pairs = create_pairs(events_pairs, self.pairs_dict_pad, self.pair_vectors, self.masking_val, 10)
+                pairs_inp, pairs_inp_sorted, features_pairs = create_pairs(events_pairs, self.pairs_dict_pad, self.pair_vectors, self.masking_val, 10)
                 self.features_pairs = features_pairs
                 events2 = reshape_raw_inputs2(events2)
 
@@ -578,6 +581,7 @@ class SimpleDNN(MLModel):
                     DNN_inputs["inputs"] = events
                     DNN_inputs["inputs2"] = events2
                     DNN_inputs["pairs_inp"] = pairs_inp
+                    DNN_inputs["pairs_inp_sorted"] = pairs_inp_sorted
                     DNN_inputs["target"] = target
                 else:
                     # check max number of jets of datasets and append EMPTY_FLOAT columns if necessary
@@ -594,6 +598,7 @@ class SimpleDNN(MLModel):
                     DNN_inputs["inputs"] = np.concatenate([DNN_inputs["inputs"], events])
                     DNN_inputs["inputs2"] = np.concatenate([DNN_inputs["inputs2"], events2])
                     DNN_inputs["pairs_inp"] = np.concatenate([DNN_inputs["pairs_inp"], pairs_inp], axis=0)
+                    DNN_inputs["pairs_inp_sorted"] = np.concatenate([DNN_inputs["pairs_inp_sorted"], pairs_inp_sorted], axis=0)
                     DNN_inputs["target"] = np.concatenate([DNN_inputs["target"], target])
             logger.debug(f"   weights: {weights[:5]}")
             logger.debug(f"   Sum NN weights: {sum_nnweights}")
@@ -666,16 +671,19 @@ class SimpleDNN(MLModel):
             validation["prediction"] = call_func_safe(model, validation['inputs_baseline_pairs'])
             # call_func_safe(plot_shap_baseline, model, train, output, self.process_insts, self.target_dict, feature_names, self.features_pairs, self.baseline_jets, self.baseline_pairs, self.model_type)
 
-        elif self.model_type == "DeepSets" or self.model_type == "DeepSetsPS":
+        elif self.model_type == "DeepSets":
             train["prediction"] = call_func_safe(model, [train['inputs'], train['inputs2']])
             validation["prediction"] = call_func_safe(model, [validation['inputs'], validation['inputs2']])
             # plot shap for Deep Sets
             # call_func_safe(plot_feature_ranking_deep_sets, masking_model, train, output, self.process_insts, self.target_dict, feature_names, self.train_sorting)
             # call_func_safe(plot_shap_values_deep_sets, model, train, output, self.process_insts, self.target_dict, feature_names, self.baseline_jets, self.baseline_pairs, self.model_type)
+        elif self.model_type == "DeepSetsPS":
+            train["prediction"] = call_func_safe(model, [[train['inputs'], train['pairs_inp']], train['inputs2']])
+            validation["prediction"] = call_func_safe(model, [[validation['inputs'], validation['pairs_inp']], validation['inputs2']])
         elif self.model_type == "DeepSetsPP":
             train["prediction"] = call_func_safe(model, [train["inputs"], train["pairs_inp"], train["inputs2"]])
             validation["prediction"] = call_func_safe(model, [validation["inputs"], validation["pairs_inp"], validation["inputs2"]])
-            # call_func_safe(feature_ranking_deep_sets_pp, model, train, output, self.process_insts, self.target_dict, feature_names)
+            call_func_safe(feature_ranking_deep_sets_pp, model, train, output, self.process_insts, self.target_dict, feature_names, self.latex_dict)
 
         # make some plots of the history
         call_func_safe(plot_accuracy, model.history.history, output)
@@ -748,8 +756,9 @@ class SimpleDNN(MLModel):
             'mean': train_norm['mean_pairs'], 'std': train_norm['std_pairs']}
         deepset_config_sequential = {'nodes': self.nodes_deepSets, 'activations': self.activation_func_deepSets,
             'aggregations': self.aggregations, 'masking_val': self.masking_val,
-            'mean': train_norm['mean_jets'], 'std': train_norm['std_jets'],
-            'dict_vals': dict_vals}
+            'mean_jets': train_norm['mean_jets'], 'std_jets': train_norm['std_jets'],
+            'mean_pairs': train_norm['mean_pairs'], 'std_pairs': train_norm['std_pairs'],
+            'dict_vals': dict_vals, 'sequential_mode': self.sequential_mode}
         # FF config for the comb networks, 0 and 1 are padded in the NN to match the concat of DS OP and Inputs2
         feedforward_DS_config = {'nodes': self.nodes_ff, 'activations': self.activation_func_ff,
             'n_classes': self.n_output_nodes, 'mean': train_norm['mean_inputs2'],
@@ -777,8 +786,8 @@ class SimpleDNN(MLModel):
             tf_validation = [[validation['inputs'], validation['inputs2']], validation['target']]
         elif self.model_type == "DeepSetsPS":
             model = CombinedDeepSetPairsSequentialNetwork(deepset_config_sequential, feedforward_DS_config)
-            tf_train = [[train['inputs'], train['inputs2']], train['target']]
-            tf_validation = [[validation['inputs'], validation['inputs2']], validation['target']]
+            tf_train = [[[train['inputs'], train['pairs_inp']], train['inputs2']], train['target']]
+            tf_validation = [[[validation['inputs'], validation['pairs_inp']], validation['inputs2']], validation['target']]
         elif self.model_type == "DeepSetsPP":
             deepset_config_jets["inp_type"] = "Jets"
             deepset_config_pairs["inp_type"] = "Pairs"
@@ -859,7 +868,8 @@ class SimpleDNN(MLModel):
         if self.model_type == "baseline" or self.model_type == "baseline_pairs":
             self.instant_evaluate(task, model, model, self.input_features, self.processes, train, validation, output)
         elif self.model_type == "DeepSets" or self.model_type == "DeepSetsPS":
-            slice_idx = tf_train[0][0].shape[2]
+            # slice_idx = tf_train[0][0].shape[2]
+            slice_idx = None
             masking_model = ShapMasking(slice_idx, model)
             self.instant_evaluate(task, model, masking_model, self.input_features, self.processes, train, validation, output)
         elif self.model_type == "DeepSetsPP":
@@ -868,7 +878,7 @@ class SimpleDNN(MLModel):
             self.n_output_nodes, self.batch_norm_deepSets, self.batch_norm_ff, self.input_features,
             self.process_insts, self.activation_func_deepSets, self.activation_func_ff, self.learningrate,
             self.ml_process_weights, self.jet_num_cut, self.ml_process_weights,
-            self.model_type, self.jet_collection, self.projection_phi)
+            self.model_type, self.jet_collection, self.projection_phi, self.sequential_mode)
 
     def evaluate(
         self,
@@ -885,7 +895,10 @@ class SimpleDNN(MLModel):
         proc_name = task.dataset.split("_madgraph")[0]
         models, history = zip(*models)
         model0 = models[0]
-        max_jets = model0.signatures["serving_default"].structured_input_signature[1]['input_1'].shape[1]
+        if self.model_type == "DeepSetsPS":
+            max_jets = model0.signatures["serving_default"].structured_input_signature[1]['input_1_1'].shape[1]
+        else:
+            max_jets = model0.signatures["serving_default"].structured_input_signature[1]['input_1'].shape[1]
         # create a copy of the inputs to use for evaluation
         inputs = ak.copy(events)
         events2 = events[self.input_features[1]]
@@ -903,7 +916,7 @@ class SimpleDNN(MLModel):
         events1 = reshape_raw_inputs1(events1, self.n_features, self.input_features[0], projection_phi)
         events2 = reshape_raw_inputs2(events2)
         events_pairs = reshape_raw_inputs1(events_pairs, len(self.pair_vectors), self.pair_vectors, projection_phi)
-        pairs_inp, _ = create_pairs(events_pairs, self.pairs_dict_pad, self.pair_vectors, self.masking_val, 10)
+        pairs_inp, pairs_sorted, _ = create_pairs(events_pairs, self.pairs_dict_pad, self.pair_vectors, self.masking_val, 10)
 
         # add extra colums to the deep sets input to fir the required input shape of the model
         # padding of extra columns must use the EMPTY_FLOAT, will be replaced with masking value
@@ -921,6 +934,7 @@ class SimpleDNN(MLModel):
         test = {'inputs': events1,
                 'inputs2': events2,
                 'pairs_inp': pairs_inp,
+                'pairs_inp_sorted': pairs_sorted,
                 'target': target,
                 }
 
@@ -932,7 +946,9 @@ class SimpleDNN(MLModel):
             inputs = test['inputs_baseline_pairs']
         elif self.model_type == "DeepSetsPP":
             inputs = [test["inputs"], test["pairs_inp"], test["inputs2"]]
-        elif self.model_type == "DeepSetsPS" or self.model_type == "DeepSets":
+        elif self.model_type == "DeepSetsPS":
+            inputs = [[test["inputs"], test["pairs_inp"]], test["inputs2"]]
+        elif self.model_type == "DeepSets":
             inputs = [test["inputs"], test["inputs2"]]
 
         # do prediction for all models and all inputs
@@ -955,7 +971,10 @@ class SimpleDNN(MLModel):
         a given subset.'''
         # combine all models into 1 output score, using the model that has not seen test set yet
         outputs = ak.where(ak.ones_like(predictions[0]), -1, -1)
+        op = ak.where(ak.ones_like(predictions[0]), -1, -1)
         weights = np.full(len(outputs), 0)
+        target_val = np.full(len(outputs), target_dict[task.dataset])
+        events = set_ak_column(events, f"{self.cls_name}.ml_truth_label_{proc_name}__{self.model_name}", target_val)
         for i in range(self.folds):
             logger.info(f"Evaluation fold {i}")
             # output = task.target(f"mlmodel_f{task.branch}of{self.folds}_{self.model_name}", dir=True)
@@ -964,10 +983,15 @@ class SimpleDNN(MLModel):
             '''get indices of the events that belong to k subset not yet seen by the model and
             override the entries at these indices in outputs with the prediction of the model.'''
             idx = ak.to_regular(ak.concatenate([ak.singletons(fold_indices == i)] * len(self.processes), axis=1))
-            idx = ~idx
             outputs = ak.where(idx, predictions[i], outputs)
+            fold_op = ak.where(idx, predictions[i], op)
+            fold_op = np.concatenate((fold_op, target), axis=1)
+
             mask_weights = (np.sum(idx, axis=1) != 0)
             weights = ak.where(mask_weights, events.normalization_weight, weights)
+            w = np.array(weights).reshape(-1, 1)
+            fold_op = np.concatenate((fold_op, w), axis=1)
+            events = set_ak_column(events, f"{self.cls_name}.pred_fold_{i}_{proc_name}__{self.model_name}", fold_op)
             # get the inp of the Deep Sets for each test fold
             # filler = np.full_like(inputs[0], self.masking_val)
             # padded_fold_inp = np.concatenate((inputs[0].numpy()[mask_weights], filler[~mask_weights]), axis=0)
@@ -982,13 +1006,11 @@ class SimpleDNN(MLModel):
             raise Exception("Number of output nodes should be equal to number of processes")
         '''Create on column for each proc containing the NN output score of output node associated
         with that process.'''
-        for i, proc in enumerate(self.processes):
-            events = set_ak_column(
-                events, f"{self.cls_name}.score_{proc}", outputs[:, i],
-            )
+        # for i, proc in enumerate(self.processes):
+        #     events = set_ak_column(
+        #         events, f"{self.cls_name}.score_{proc}", outputs[:, i],
+        #     )
         events = set_ak_column(events, f"{self.cls_name}.predictions_{proc_name}__{self.model_name}", test["prediction"])
-        target_val = np.full(len(test["prediction"]), target_dict[task.dataset])
-        events = set_ak_column(events, f"{self.cls_name}.ml_truth_label_{proc_name}__{self.model_name}", target_val)
         pred_target = np.concatenate((test["prediction"], target), axis=1)
         events = set_ak_column(events, f"{self.cls_name}.pred_target_{proc_name}__{self.model_name}", pred_target)
         events = set_ak_column(events, f"{self.cls_name}.target_label_{proc_name}__{self.model_name}", np.full(target.shape[0], target_dict[f'{task.dataset}']))
