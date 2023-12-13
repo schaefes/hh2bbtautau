@@ -954,7 +954,6 @@ def add_variables(config: od.Config) -> None:
         expression="GenPartVBFparton2Eta",
         null_value=EMPTY_FLOAT,
         binning=(45, -8.0, 8.0),
-        unit="GeV",
         x_title=r"Gen VBF2 Parton $\eta$",
     )
     config.add_variable(
@@ -1378,7 +1377,7 @@ def add_variables(config: od.Config) -> None:
         expression="VBFPairsInEvent",
         null_value=EMPTY_FLOAT,
         binning=[-0.5, 0.5, 1.5],
-        x_title=r"Number of VBF Jet Pairs",
+        x_title=r"Number of VBF Pairs found",
     )
     config.add_variable(
         name="VBFMaskStep",
