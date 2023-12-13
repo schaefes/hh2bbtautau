@@ -3,8 +3,8 @@
 from columnflow.tasks.ml import MLEvaluation, MLEvaluationWrapper
 import numpy as np
 from plotting_funcs import (plot_confusion, plot_roc_ovr, plot_output_nodes,
-                            plot_significance, plot_confusion2, plot_roc_ovr2,
-                            check_distribution)
+                            plot_significance, check_distribution, event_weights,
+                            calculate_confusion, plot_confusion_std, calculate_auc)
 import os
 import awkward as ak
 
@@ -33,11 +33,12 @@ target_dict = {}
 weights = []
 DeepSetsInpPt = {}
 DeepSetsInpEta = {}
+fold_pred = {}
 
 # get the target and predictions from MLEvaluate
 for num, proc in enumerate(processes):
     t = MLEvaluation(
-        version="BtagsCustomVBFMaskJets2",
+        version="PairsCustomVBFMaskJets2",
         ml_model="test",
         dataset=f"{proc}_madgraph",
         calibrators=("skip_jecunc",),
@@ -64,6 +65,18 @@ for num, proc in enumerate(processes):
             DeepSetsInpPt[f'{column}'] = scores[f'{column}']
         if 'DeepSetsInpEta' in column:
             DeepSetsInpEta[f'{column}'] = scores[f'{column}']
+        if 'pred_fold' in column:
+            key_name = f'pred_fold_{column.split("fold_")[1][0]}'
+            mask = np.where(scores[column][:, :len(processes)] == -1., False, True)
+            mask = np.transpose(np.tile(mask[:, 0], (np.array(scores[column]).shape[1], 1)))
+            inp = np.array(scores[column][mask]).reshape(-1, np.array(scores[column]).shape[1])
+            if key_name in fold_pred.keys():
+                content = fold_pred[key_name]
+                concat = np.concatenate((content, inp), axis=0)
+                fold_pred[key_name] = concat
+            else:
+                fold_pred[key_name] = inp
+
     prev_model = model_check
 
 # create the savepath for the plots
@@ -73,52 +86,54 @@ path = os.path.join(path, model_name)
 if not os.path.exists(path):
     os.makedirs(path)
 
-# for i in range(10):
-#     input_folds = []
-#     for key_fold, value_fold in DeepSetsInpPt.items():
-#         if f"fold{i}" in key_fold:
-#             input_folds.append(value_fold)
-#     inp_pt = np.concatenate(input_folds, axis=0)
-#     inp_pt = np.array(inp_pt).flatten()
-#     check_distribution(path, inp_pt, "pT", -2, i)
+for arr in fold_pred.values():
+    weights = arr[:, -1]
+    targets = arr[:, (-len(processes) - 1):-1]
+    sample_weights = event_weights(targets, weights)
+    predictions = arr[:, :len(processes)]
 
-# for i in range(10):
-#     input_folds = []
-#     for key_fold, value_fold in DeepSetsInpEta.items():
-#         if f"fold{i}" in key_fold:
-#             input_folds.append(value_fold)
-#     inp_eta = np.concatenate(input_folds, axis=0)
-#     inp_eta = np.array(inp_eta).flatten()
-#     check_distribution(path, inp_eta, "Eta", -2, i)
 
-# calculate the proper event weights from the normalization weights
-N_events_processes = np.array([len(i) for i in weights])
-ml_proc_weights = np.max(N_events_processes) / N_events_processes
-weight_scalar = np.min(N_events_processes / ml_proc_weights)
-sum_eventweights_proc = np.array([np.sum(i) for i in weights])
-sample_weights = ak.Array(weights)
-sample_weights = sample_weights * weight_scalar / sum_eventweights_proc
-sample_weights = sample_weights * ml_proc_weights
-sample_weights = ak.to_numpy(ak.flatten(sample_weights))
-
-collection_pred_target = np.concatenate(list(collection_dict.values()), axis=0)
-predictions = collection_pred_target[:, :len(processes)]
-targets = collection_pred_target[:, len(processes):]
+# collection_pred_target = np.concatenate(list(collection_dict.values()), axis=0)
+# predictions = collection_pred_target[:, :len(processes)]
+# targets = collection_pred_target[:, len(processes):]
 
 label_sorting = np.argsort(list(target_dict.values()))
 sorted_label_keys = np.array(list(target_dict.keys()))[label_sorting]
 sorted_labels = [label_dict[label_key] for label_key in sorted_label_keys]
-inputs = {
-    'prediction': predictions,
-    'target': targets,
-    'weights': sample_weights,
-    }
+# inputs = {
+#     'prediction': predictions,
+#     'target': targets,
+#     'weights': sample_weights,
+#     }
 
+fold_confusion = []
+fold_auc = []
+for arr in fold_pred.values():
+    inputs_fold = {}
+    inputs_fold['prediction'] = arr[:, :len(processes)]
+    inputs_fold['target'] = arr[:, len(processes): -1]
+    inputs_fold['weights'] = arr[:, -1]
+    fold_matrix = calculate_confusion(inputs_fold)
+    fold_scores = calculate_auc(inputs_fold)
+    fold_confusion.append(fold_matrix)
+    fold_auc.append(fold_scores)
+fold_confusion = np.array(fold_confusion)
+fold_confusion = np.expand_dims(fold_confusion, axis=1)
+std_confusion = np.std(fold_confusion, axis=0)
+std_auc = np.std(np.array(fold_auc), axis=0)
+
+# aggregate all folds
+stacked_inp = np.vstack(list(fold_pred.values()))
+inputs = {
+    'prediction': stacked_inp[:, :len(processes)],
+    'target': stacked_inp[:, len(processes): -1],
+    'weights': stacked_inp[:, -1],
+}
+
+confusion = calculate_confusion(inputs)
 # start plotting
+plot_confusion_std(confusion, std_confusion, sorted_labels, path)
 plot_confusion(inputs, sorted_labels, path, "test set")
-plot_confusion2(inputs, sorted_labels, path, "test set")
-plot_roc_ovr(inputs, sorted_labels, path, "test set")
-plot_roc_ovr2(inputs, sorted_labels, path, "test set")
+plot_roc_ovr(inputs, sorted_labels, path, "test set", std_auc)
 plot_output_nodes(inputs, sorted_label_keys, sorted_labels, path, "test set")
 plot_significance(inputs, sorted_label_keys, sorted_labels, path, "test set")
-

@@ -48,7 +48,7 @@ def plot_confusion(inputs, labels, save_path, input_set):
     plt.savefig(file_path)
 
 
-def plot_confusion2(inputs, labels, save_path, input_set):
+def calculate_confusion(inputs):
     """
     Simple function to create and store a confusion matrix plot
     """
@@ -56,48 +56,24 @@ def plot_confusion2(inputs, labels, save_path, input_set):
     plt.style.use(mplhep.style.CMS)
 
     from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-    import os
-
-    labels = [f"$HH{label.split('HH')[-1]}" for label in labels]
 
     # Create confusion matrix and normalizes it over predicted (columns)
     confusion = confusion_matrix(
         y_true=np.argmax(inputs['target'], axis=1),
         y_pred=np.argmax(inputs['prediction'], axis=1),
-        # sample_weight=inputs['weights'],
+        sample_weight=inputs['weights'],
         normalize="true",
     )
 
-    # labels_ext = [proc_inst.label for proc_inst in process_insts] if process_insts else None
-    # labels = [label.split("HH_{")[1].split("}")[0] for label in labels_ext]
-    # labels = ["$HH_{" + label for label in labels]
-    # labels = [label + "}$" for label in labels]
-
-    # Create a plot of the confusion matrix
-    fig, ax = plt.subplots(figsize=(15, 10))
-    matrix_display = ConfusionMatrixDisplay(confusion, display_labels=labels)
-    matrix_display.plot(ax=ax)
-    matrix_display.im_.set_clim(0, 1)
-
-    ax.set_title(f"{input_set}, rows normalized", fontsize=32, loc="left")
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
-    file_path = f"{save_path}/confusion_test_set2.pdf"
-    os.remove(file_path) if os.path.exists(file_path) else None
-    plt.savefig(file_path)
+    return confusion
 
 
-def plot_roc_ovr(inputs, labels, save_path, input_set):
-    """
-    Simple function to create and store some ROC plots;
-    mode: OvR (one versus rest)
-    """
+def calculate_auc(inputs):
+
     from sklearn.metrics import roc_curve, roc_auc_score
-    import os
 
     auc_scores = []
     n_classes = len(inputs['target'][0])
-
-    labels = [f"$HH{label.split('HH')[-1]}" for label in labels]
 
     fig, ax = plt.subplots()
     for i in range(n_classes):
@@ -115,23 +91,10 @@ def plot_roc_ovr(inputs, labels, save_path, input_set):
         # create the plot
         ax.plot(fpr, tpr)
 
-    ax.set_title(f"ROC OvR, {input_set}")
-    ax.set_xlabel("Background selection efficiency (FPR)")
-    ax.set_ylabel("Signal selection efficiency (TPR)")
-
-    # legend
-    labels = [label for label in labels]
-    ax.legend(
-        [f"Signal: {labels[i]} (AUC: {auc_score:.4f})" for i, auc_score in enumerate(auc_scores)],
-        loc="best",
-    )
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
-    file_path = f"{save_path}/ROC_test_set.pdf"
-    os.remove(file_path) if os.path.exists(file_path) else None
-    plt.savefig(file_path)
+    return auc_scores
 
 
-def plot_roc_ovr2(inputs, labels, save_path, input_set):
+def plot_roc_ovr(inputs, labels, save_path, input_set, std):
     """
     Simple function to create and store some ROC plots;
     mode: OvR (one versus rest)
@@ -143,13 +106,14 @@ def plot_roc_ovr2(inputs, labels, save_path, input_set):
     n_classes = len(inputs['target'][0])
 
     labels = [f"$HH{label.split('HH')[-1]}" for label in labels]
+    labels = [f"{l.split('}')[0]}{'}'}$" for l in labels]
 
     fig, ax = plt.subplots()
     for i in range(n_classes):
         fpr, tpr, thresholds = roc_curve(
             y_true=inputs['target'][:, i],
             y_score=inputs['prediction'][:, i],
-            # sample_weight=inputs['weights'],
+            sample_weight=inputs['weights'],
         )
 
         auc_scores.append(roc_auc_score(
@@ -159,19 +123,18 @@ def plot_roc_ovr2(inputs, labels, save_path, input_set):
 
         # create the plot
         ax.plot(fpr, tpr)
-
     ax.set_title(f"ROC OvR, {input_set}")
     ax.set_xlabel("Background selection efficiency (FPR)")
     ax.set_ylabel("Signal selection efficiency (TPR)")
 
     # legend
-    labels = [label for label in labels]
+    std = np.round(std, decimals=4)
     ax.legend(
-        [f"Signal: {labels[i]} (AUC: {auc_score:.4f})" for i, auc_score in enumerate(auc_scores)],
+        [f"Signal: {labels[i]} (AUC: {auc_score:.4f} ± {std[i]})" for i, auc_score in enumerate(auc_scores)],
         loc="best",
     )
     mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
-    file_path = f"{save_path}/ROC_test_set2.pdf"
+    file_path = f"{save_path}/ROC_test_set.pdf"
     os.remove(file_path) if os.path.exists(file_path) else None
     plt.savefig(file_path)
 
@@ -337,5 +300,74 @@ def check_distribution(save_path, input, feature, masking_val, fold_idx):
 
     mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=0)
     file_path = f"{save_path}/input_distributon_{feature}_fold{fold_idx}.pdf"
+    os.remove(file_path) if os.path.exists(file_path) else None
+    plt.savefig(file_path)
+
+
+# calculate the proper event weights from the normalization weights
+# def event_weights(targets, weights):
+#     N_events_processes = np.array([len(i) for i in weights])
+#     ml_proc_weights = np.max(N_events_processes) / N_events_processes
+#     weight_scalar = np.min(N_events_processes / ml_proc_weights)
+#     sum_eventweights_proc = np.array([np.sum(i) for i in weights])
+#     sample_weights = ak.Array(weights)
+#     sample_weights = sample_weights * weight_scalar / sum_eventweights_proc
+#     sample_weights = sample_weights * ml_proc_weights
+#     sample_weights = ak.to_numpy(ak.flatten(sample_weights))
+
+
+def event_weights(targets, weights_all):
+    sum_eventweights_proc = np.zeros(targets.shape[1])
+    N_events_processes = np.sum(targets, axis=0)
+    ml_proc_weights = np.max(N_events_processes) / N_events_processes
+    weight_scalar = np.min(N_events_processes / ml_proc_weights)
+    for i in range(targets.shape[1]):
+        mask = np.where(targets[:, i] == 1, True, False)
+        sum_eventweights_proc[i] = np.sum(weights_all[mask])
+    scaling_factor = (weight_scalar / sum_eventweights_proc) * ml_proc_weights
+    for i in range(targets.shape[1]):
+        mask = np.where(targets[:, i] == 1, True, False)
+        weights_all = np.where(mask, weights_all * scaling_factor[i], weights_all)
+
+    return weights_all
+
+
+def plot_confusion_std(confusion, std, label, save_path):
+    import os
+    import matplotlib.pyplot as plt
+    import seaborn as s
+
+    labels = [f"$HH{label.split('HH')[-1]}" for label in label]
+    labels = [f"{l.split('}')[0]}{'}'}$" for l in labels]
+
+    plt.style.use(mplhep.style.CMS)
+
+    fig, ax = plt.subplots(figsize=(20, 10))
+
+    # creating text array using numpy
+    confusion_str = np.round(confusion, decimals=2).astype(str)
+    std_str = np.round(std, decimals=2).astype(str)
+    pm = np.full_like(confusion_str, "\n± ")
+    annot_1 = np.char.add(confusion_str, pm)
+    cell_annotations = np.squeeze(np.char.add(annot_1, std_str))
+
+    # defining heatmap on current axes using seaborn
+    ax = s.heatmap(confusion, annot=cell_annotations, fmt="", annot_kws={'color': 'yellow'},
+                   xticklabels=labels, yticklabels=labels, vmin=0, vmax=1, square=True,
+                   cmap="viridis", linecolor='black', linewidths=0.01, cbar=False)
+    ax = s.heatmap(confusion, mask=confusion < 0.4, annot=cell_annotations, fmt="", annot_kws={'color': 'black'},
+                   xticklabels=labels, yticklabels=labels, vmin=0, vmax=1, square=True,
+                   cmap="viridis", cbar=False, linecolor='black', linewidths=0.01)
+    for _, spine in ax.spines.items():
+        spine.set(visible=True, lw=2, edgecolor="black")
+
+    plt.yticks(rotation=0)
+    ax.set_xlabel("Predicted Label")
+    ax.set_ylabel("True Label")
+    ax.figure.colorbar(ax.collections[0])
+
+    # save the confusion matrix
+    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=0)
+    file_path = f"{save_path}/confusion_and_std.pdf"
     os.remove(file_path) if os.path.exists(file_path) else None
     plt.savefig(file_path)
