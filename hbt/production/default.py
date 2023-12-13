@@ -19,13 +19,13 @@ from hbt.production.invariant_mass import (invariant_mass_jets, invariant_mass_t
     invariant_mass_bjets, invariant_mass_HH, kinematic_vars_taus, kinematic_vars_jets,
     kinematic_vars_bjets, jet_information, bjet_information, tau_information,
     kinematic_vars_colljets, dr_inv_mass_jets, d_eta_inv_mass_jets, energy_correlation,
-    genBPartonProducer, genTauPartonProducer, genHPartonProducer, genVBFPartonProducer,
+    genBPartonProducer, genTauPartonProducer, genHPartonProducer,
     kinematic_vars_VBFjets, dR_bjets, dR_tau, Btagging_efficiency_Bpartons,
     VBFsteps_analysis, GenInvMassdEta, NumberOfMatchedPartons, VBFCandidatesInvMassdEta)
 from hbt.production.Tau_plotting import (kinematics_tau_partons, PartonsFromTauIdx, PartonsFromHadDecay)
 from hbt.production.ml_producer import (kinematic_vars_vbfmaskjets, kinematic_vars_customvbfmaskjets,
                                         kinematic_vars_customvbfmaskjets2)
-from hbt.production.VBF_plotting import (VBFtagging_efficiency, VBFPairsInEvent)
+from hbt.production.VBF_plotting import (VBFtagging_efficiency, VBFPairsInEvent, genVBFPartonProducer)
 
 
 ak = maybe_import("awkward")

@@ -170,7 +170,6 @@ def genVBFPartonProducer(self: Producer, events: ak.Array, **kwargs) -> ak.Array
     d_eta_table = events.genVBFparton.metric_table(events.genVBFparton, axis=1, metric=d_eta_helper)
     d_eta_values = d_eta_table[:, 0, 1]
     events = set_ak_column_f32(events, "GenPartVBFpartondEta", ak.fill_none(d_eta_values, EMPTY_FLOAT))
-
     return events
 
 

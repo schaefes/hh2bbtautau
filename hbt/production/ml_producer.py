@@ -570,14 +570,16 @@ def kinematic_vars_customvbfmaskjets(self: Producer, events: ak.Array, **kwargs)
         "CustomVBFMaskJets2_btagQG", "CustomVBFMaskJets2_nConstituents",
         "CustomVBFMaskJets2_METphi", "CustomVBFMaskJets2_bFlavtagCvL",
         "CustomVBFMaskJets2_bFlavtagCvB", "CustomVBFMaskJets2_bFlavtag", "CustomVBFMaskJets2_px",
-        "CustomVBFMaskJets2_py", "CustomVBFMaskJets2_pz",
+        "CustomVBFMaskJets2_py", "CustomVBFMaskJets2_pz", "CustomVBFMaskJets2_mbb", "CustomVBFMaskJets2_mbb",
+        "CustomVBFMaskJets2_mHH", "CustomVBFMaskJets2_mtautau",
     },
 )
 def kinematic_vars_customvbfmaskjets2(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    events = self[attach_coffea_behavior](events, collections={"CustomVBFMaskJets2": {"type_name": "Jet"}}, **kwargs)
+    events = self[attach_coffea_behavior](events, collections={"CustomVBFMaskJets2": {"type_name": "Jet"}, "Tau": {"type_name": "Tau"}}, **kwargs)
     n_jets = ak.count(events.CustomVBFMaskJets2.pt, axis=1)
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_njets", n_jets)
     max_njets = np.max(n_jets)
+    N_events = len(events.CustomVBFMaskJets2)
 
     # Get max dEta and the corresponing invariant mass
     max_dEta, inv_mass_dEta, max_inv_mass_vals = dEta_and_inv_mass(events.CustomVBFMaskJets2, n_jets)
@@ -650,9 +652,9 @@ def kinematic_vars_customvbfmaskjets2(self: Producer, events: ak.Array, **kwargs
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_ones", ones_count_ds)
 
     # Calculate energy
-    p_x = jets_pt * np.cos(jets_phi)
-    p_y = jets_pt * np.sin(jets_phi)
-    p_z = jets_pt * np.sinh(jets_eta)
+    p_x = events.CustomVBFMaskJets2.px
+    p_y = events.CustomVBFMaskJets2.py
+    p_z = events.CustomVBFMaskJets2.pz
     p = np.sqrt(p_x**2 + p_y**2 + p_z**2)
     jets_e = np.sqrt(jets_mass**2 + p**2)
     jets_e = ak.fill_none(jets_e, EMPTY_FLOAT)
@@ -666,6 +668,21 @@ def kinematic_vars_customvbfmaskjets2(self: Producer, events: ak.Array, **kwargs
 
     # save the met phi to use for projection of the jet phis
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_METphi", ak.fill_none(events.MET.phi, EMPTY_FLOAT))
+
+    # calculate mbb for the two jets leading in bTagDeepFlav score
+    # super slow
+    event_idx = np.arange(N_events).reshape(N_events, -1)
+    b_idx = np.array(np.argsort(jets_bFlavtag, axis=1)[:, -2:])
+    bjets = events.CustomVBFMaskJets2[event_idx, b_idx]
+    m_bb = bjets.sum(axis=1).mass
+    m_tau = events.Tau[:, :2].sum(axis=1).mass
+    m_HH = (bjets.sum(axis=1) + events.Tau[:, :2].sum(axis=1)).mass
+    m_mask = np.where(ak.num(events.Tau) < 2, True, False)
+    m_HH = np.where(m_mask, EMPTY_FLOAT, m_HH)
+    m_tau = np.where(m_mask, EMPTY_FLOAT, m_tau)
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_mbb", ak.fill_none(m_bb, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_mHH", ak.fill_none(m_HH, EMPTY_FLOAT))
+    events = set_ak_column_f32(events, "CustomVBFMaskJets2_mtautau", ak.fill_none(m_tau, EMPTY_FLOAT))
 
     return events
 
