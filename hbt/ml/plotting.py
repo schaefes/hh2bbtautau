@@ -55,15 +55,10 @@ def correlation_matrix(topDS, inp_full, topDS_labels, event_labels, file_name, o
     fig3 = plt.figure()
     plt.style.use(mplhep.style.CMS)
     plt.scatter(ev, ds, color='blue', s=1)
-    plt.xlabel(f"{event_labels[leading[1]]}")
-    plt.ylabel(f"{topDS_labels[leading[0]]}")
+    plt.xlabel(f"{event_labels[leading[1]]} (X)")
+    plt.ylabel(f"{topDS_labels[leading[0]]} (Y)")
     title_str = "Scatter Correlation" + r"$\rho_{X,Y}=$" + f"{corrcoef.max()}"
-    plt.title(title_str)
-    textstr = '\n'.join((
-        "Correlation Coefficient",
-        r"$\rho_{X,Y}=%.2f$" % (corrcoef.max(), )))
-    props = dict(boxstyle='round', facecolor='white', alpha=0.5)
-    plt.text(3750, 28.5, textstr, bbox=props, ha='right', va='top')
+    plt.title(title_str, loc='left')
     mplhep.cms.label(llabel="Work in progress", data=False, loc=2)
     output.child(f"Scatter_Correlation{file_name}.pdf", type="f").dump(fig3, formatter="mpl")
 
@@ -145,93 +140,6 @@ def plot_confusion(
     ax.set_title(f"{input_type} set, rows normalized", fontsize=32, loc="left")
     mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
     output.child(f"Confusion_{input_type}_{sorting}.pdf", type="f").dump(fig, formatter="mpl")
-
-
-def plot_confusion2(
-        sorting,
-        model: tf.keras.models.Model,
-        inputs: DotDict,
-        output: law.FileSystemDirectoryTarget,
-        input_type: str,
-        process_insts: tuple[od.Process],
-) -> None:
-    """
-    Simple function to create and store a confusion matrix plot
-    """
-    # use CMS plotting style
-    plt.style.use(mplhep.style.CMS)
-
-    from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-
-    # Create confusion matrix and normalizes it over predicted (columns)
-    confusion = confusion_matrix(
-        y_true=np.argmax(inputs['target'], axis=1),
-        y_pred=np.argmax(inputs['prediction'], axis=1),
-        # sample_weight=inputs['weights'],
-        normalize="true",
-    )
-
-    labels_ext = [proc_inst.label for proc_inst in process_insts] if process_insts else None
-    labels = [label.split("HH_{")[1].split("}")[0] for label in labels_ext]
-    labels = ["$HH_{" + label for label in labels]
-    labels = [label + "}$" for label in labels]
-
-    # Create a plot of the confusion matrix
-    fig, ax = plt.subplots(figsize=(15, 10))
-    matrix_display = ConfusionMatrixDisplay(confusion, display_labels=labels)
-    matrix_display.plot(ax=ax)
-    matrix_display.im_.set_clim(0, 1)
-
-    ax.set_title(f"{input_type} set, rows normalized", fontsize=32, loc="left")
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
-    output.child(f"Confusion_{input_type}_{sorting}2.pdf", type="f").dump(fig, formatter="mpl")
-
-
-def plot_roc_ovr2(
-        sorting,
-        inputs: DotDict,
-        output: law.FileSystemDirectoryTarget,
-        input_type: str,
-        process_insts: tuple[od.Process],
-) -> None:
-    """
-    Simple function to create and store some ROC plots;
-    mode: OvR (one versus rest)
-    """
-    from sklearn.metrics import roc_curve, roc_auc_score
-
-    auc_scores = []
-    n_classes = len(inputs['target'][0])
-
-    fig, ax = plt.subplots()
-    for i in range(n_classes):
-        fpr, tpr, thresholds = roc_curve(
-            y_true=inputs['target'][:, i],
-            y_score=inputs['prediction'][:, i],
-            # sample_weight=inputs['weights'],
-        )
-
-        auc_scores.append(roc_auc_score(
-            inputs['target'][:, i], inputs['prediction'][:, i],
-            average="macro", multi_class="ovr",
-        ))
-
-        # create the plot
-        ax.plot(fpr, tpr)
-
-    ax.set_title(f"ROC OvR, {input_type} set")
-    ax.set_xlabel("Background selection efficiency (FPR)")
-    ax.set_ylabel("Signal selection efficiency (TPR)")
-
-    # legend
-    labels = [proc_inst.label for proc_inst in process_insts] if process_insts else range(n_classes)
-    ax.legend(
-        [f"Signal: {labels[i]} (AUC: {auc_score:.4f})" for i, auc_score in enumerate(auc_scores)],
-        loc="best",
-    )
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
-
-    output.child(f"ROC_ovr_{input_type}_{sorting}2.pdf", type="f").dump(fig, formatter="mpl")
 
 
 def plot_roc_ovr(
@@ -448,19 +356,18 @@ def plot_significance(
         output.child(f"Significance_Node_{process_insts[i].name}_{sorting}.pdf", type="f").dump(fig, formatter="mpl")
 
 
-def plot_shap_values_deep_sets_mean(
+def plot_shap_deep_sets(
         model: tf.keras.models.Model,
         train: DotDict,
         output: law.FileSystemDirectoryTarget,
         process_insts: tuple[od.Process],
         target_dict,
         feature_names,
-        sorting,
+        latex_dict,
 ) -> None:
 
     # names of the features
     event_features = feature_names[1]
-
     # make sure class names are sorted correctly in correspondence to their target index
     classes = sorted(target_dict.items(), key=lambda x: x[1])
     class_sorted = np.array(classes)[:, 0]
@@ -471,126 +378,15 @@ def plot_shap_values_deep_sets_mean(
 
     # get the Deep Sets model Output that will be used as Input for the subsequent FF Network
     subset_idx = 150
-    deepSets_op = model.deepset_network.predict(train[f'inputs_{sorting}'][:subset_idx])
-    deepSets_op2 = model.deepset_network.predict(train[f'inputs_{sorting}'][-subset_idx:])
-    deepSets_features = ['DeepSets']
+    deepSets_op_full = model.deepset_network.predict(train['inputs'])
+    deepSets_op = deepSets_op_full[:subset_idx]
+    deepSets_op2 = deepSets_op_full[-subset_idx:]
 
-    # calculate shap values
-    concat_inp = np.concatenate((deepSets_op, train['inputs2'][:subset_idx]), axis=1)
-    concat_inp2 = np.concatenate((deepSets_op2, train['inputs2'][-subset_idx:]), axis=1)
-    ff_model = model.feed_forward_network
-    explainer = shap.KernelExplainer(ff_model, concat_inp)
-    shap_values = explainer.shap_values(concat_inp2)
+    inp_full = np.concatenate((deepSets_op_full, train['inputs2']), axis=1)
 
-    mean_shap_values = []
-    for node in shap_values:
-        node_values = []
-        for values in node:
-            mean_deepSets = [np.mean(abs(values[:deepSets_op.shape[1]]))]
-            event_values = values[deepSets_op.shape[1]:]
-            new_values = np.concatenate((mean_deepSets, event_values))
-            node_values.append(new_values)
-        mean_shap_values.append(np.array(node_values))
-
-    # Plot Feature Ranking
+    # Get the feature names
+    deepSets_features = [f'DeepSets{i+1}' for i in range(deepSets_op.shape[1])]
     features_list = deepSets_features + event_features
-    fig1 = plt.figure()
-    shap.summary_plot(mean_shap_values, plot_type="bar",
-        feature_names=features_list, class_names=class_list, show=False)
-    plt.title('Feature Importance Ranking')
-    output.child("DeepSet_Ranking_Mean.pdf", type="f").dump(fig1, formatter="mpl")
-
-
-def plot_shap_values_deep_sets_sum(
-        model: tf.keras.models.Model,
-        train: DotDict,
-        output: law.FileSystemDirectoryTarget,
-        process_insts: tuple[od.Process],
-        target_dict,
-        feature_names,
-        sorting,
-) -> None:
-
-    # names of the features
-    event_features = feature_names[1]
-
-    # make sure class names are sorted correctly in correspondence to their target index
-    classes = sorted(target_dict.items(), key=lambda x: x[1])
-    class_sorted = np.array(classes)[:, 0]
-    class_list = ['empty' for i in range(len(process_insts))]
-    for proc in process_insts:
-        idx = np.where(class_sorted == proc.name)
-        class_list[idx[0][0]] = proc.label
-
-    # get the Deep Sets model Output that will be used as Input for the subsequent FF Network
-    subset_idx = 150
-    deepSets_op = model.deepset_network.predict(train[f'inputs_{sorting}'][:subset_idx])
-    deepSets_op2 = model.deepset_network.predict(train[f'inputs_{sorting}'][-subset_idx:])
-    deepSets_features = ['DeepSets']
-
-    # calculate shap values
-    concat_inp = np.concatenate((deepSets_op, train['inputs2'][:subset_idx]), axis=1)
-    concat_inp2 = np.concatenate((deepSets_op2, train['inputs2'][-subset_idx:]), axis=1)
-    ff_model = model.feed_forward_network
-    explainer = shap.KernelExplainer(ff_model, concat_inp)
-    shap_values = explainer.shap_values(concat_inp2)
-
-    mean_shap_values = []
-    for node in shap_values:
-        node_values = []
-        for values in node:
-            mean_deepSets = [np.sum(abs(values[:deepSets_op.shape[1]]))]
-            event_values = values[deepSets_op.shape[1]:]
-            new_values = np.concatenate((mean_deepSets, event_values))
-            node_values.append(new_values)
-        mean_shap_values.append(np.array(node_values))
-
-    # Plot Feature Ranking
-    features_list = deepSets_features + event_features
-    fig1 = plt.figure()
-    shap.summary_plot(mean_shap_values, plot_type="bar",
-        feature_names=features_list, class_names=class_list, show=False)
-    plt.title('Feature Importance Ranking')
-    output.child("DeepSet_Ranking_Sum.pdf", type="f").dump(fig1, formatter="mpl")
-
-
-def plot_shap_values_deep_sets(
-        model: tf.keras.models.Model,
-        train: DotDict,
-        output: law.FileSystemDirectoryTarget,
-        process_insts: tuple[od.Process],
-        target_dict,
-        feature_names,
-        baseline_jets,
-        baseline_pairs,
-        model_type,
-) -> None:
-
-    # names of the features
-    event_features = feature_names[1]
-    # make sure class names are sorted correctly in correspondence to their target index
-    classes = sorted(target_dict.items(), key=lambda x: x[1])
-    class_sorted = np.array(classes)[:, 0]
-    class_list = ['empty' for i in range(len(process_insts))]
-    for proc in process_insts:
-        idx = np.where(class_sorted == proc.name)
-        class_list[idx[0][0]] = proc.label
-
-    # get the Deep Sets model Output that will be used as Input for the subsequent FF Network
-    subset_idx = 150
-    deepSets_op = model.deepset_network.predict(train['inputs'][:subset_idx])
-    deepSets_op2 = model.deepset_network.predict(train['inputs'][-subset_idx:])
-
-    # Get the correct feature names for the two DeepSets types and concat the output again if necessary
-    if model_type == "DeepSets":
-        deepSets_features = [f'DeepSets{i+1}' for i in range(deepSets_op.shape[1])]
-        features_list = deepSets_features + event_features
-    else:
-        deepSets_jets_features = [f'DeepSetsJets{i+1}' for i in range(deepSets_op[0].shape[1])]
-        deepSets_pairs_features = [f'DeepSetsPairs{i+1}' for i in range(deepSets_op[1].shape[1])]
-        features_list = deepSets_jets_features + deepSets_pairs_features + event_features
-        deepSets_op = tf.concat(deepSets_op, axis=1)
-        deepSets_op2 = tf.concat(deepSets_op2, axis=1)
 
     # calculate shap values
     concat_inp = np.concatenate((deepSets_op, train['inputs2'][:subset_idx]), axis=1)
@@ -600,14 +396,117 @@ def plot_shap_values_deep_sets(
     shap_values = explainer.shap_values(concat_inp2)
 
     # Plot Feature Ranking
-    fig1 = plt.figure()
+    fig1 = plt.figure(figsize=(20, 15))
     shap.summary_plot(shap_values, plot_type="bar",
-        feature_names=features_list, class_names=class_list, show=False, max_display=50)
+        feature_names=features_list, class_names=class_list, show=False, max_display=25)
+    plt.title("Feature Importance Ranking")
+    output.child("DeepSets_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
+
+    # Begin preparation for the correlation matrix
+    shap_values = np.array(shap_values)
+    features_list = np.array(features_list)
+
+    # calculate the proper ranking from the shap values
+    ranking = np.sum(np.sum(abs(shap_values), axis=1), axis=0)
+
+    # get the indices and sort them in descending order
+    idx = np.argsort(ranking)[::-1]
+
+    # get only the indices of the leading DS Nodes and the labels
+    idx = idx[idx < len(deepSets_features)]
+    topDS = idx[:10]
+    topDS_labels = features_list[topDS]
+
+    event_labels = list(map(latex_dict.get, event_features))
+    correlation_matrix(topDS, inp_full, topDS_labels, event_labels, "", output)
+
+
+def plot_shap_deep_sets_pp(
+        model: tf.keras.models.Model,
+        train: DotDict,
+        output: law.FileSystemDirectoryTarget,
+        process_insts: tuple[od.Process],
+        target_dict,
+        feature_names,
+        latex_dict,
+) -> None:
+    # shap values for the DeepSets architecture taking jets and pairs and input (working parallel)
+    # names of the features
+    event_features = feature_names[1]
+    # make sure class names are sorted correctly in correspondence to their target index
+    classes = sorted(target_dict.items(), key=lambda x: x[1])
+    class_sorted = np.array(classes)[:, 0]
+    class_list = ['empty' for i in range(len(process_insts))]
+    for proc in process_insts:
+        idx = np.where(class_sorted == proc.name)
+        class_list[idx[0][0]] = proc.label
+
+    # get the Deep Sets model Output that will be used as Input for the subsequent FF Network
+    subset_idx = 15
+    # Output of DeepSets for Jets
+    deepSets_jets_op_full = model.deepset_jets_network.predict(train['inputs'])
+    deepSets_jets_op = deepSets_jets_op_full[:subset_idx]
+    deepSets_jets_op2 = deepSets_jets_op_full[-subset_idx:]
+    # Output of DeepSets for Pairs
+    deepSets_pairs_op_full = model.deepset_pairs_network.predict(train['pairs_inp'])
+    deepSets_pairs_op = deepSets_pairs_op_full[:subset_idx]
+    deepSets_pairs_op2 = deepSets_pairs_op_full[-subset_idx:]
+
+    inp_full = np.concatenate((deepSets_jets_op_full, deepSets_pairs_op_full, train['inputs2']), axis=1)
+
+    deepSets_features_jets = [f'DeepSets Jets{i+1}' for i in range(deepSets_jets_op.shape[1])]
+    deepSets_features_pairs = [f'DeepSets Pairs{i+1}' for i in range(deepSets_pairs_op.shape[1])]
+    deepSets_features = deepSets_features_jets + deepSets_features_pairs
+
+    # calculate shap values
+    concat_inp = np.concatenate((deepSets_jets_op, deepSets_pairs_op, train['inputs2'][:subset_idx]), axis=1)
+    concat_inp2 = np.concatenate((deepSets_jets_op2, deepSets_pairs_op2, train['inputs2'][-subset_idx:]), axis=1)
+    ff_model = model.feed_forward_network
+    explainer = shap.KernelExplainer(ff_model, concat_inp)
+    shap_values = explainer.shap_values(concat_inp2)
+
+    # Plot Feature Ranking
+    event_labels = list(map(latex_dict.get, event_features))
+    features_list = deepSets_features + event_labels
+    from IPython import embed; embed()
+    fig1 = plt.figure(figsize=(20, 15))
+    shap.summary_plot(shap_values, plot_type="bar",
+        feature_names=features_list, class_names=class_list, show=False, max_display=25)
     plt.title('Feature Importance Ranking')
-    output.child(f"{model_type}_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
+    output.child("DeepSetPP_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
+
+    # Begin preparation for the correlation matrix
+    shap_values = np.array(shap_values)
+    features_list = np.array(features_list)
+
+    # calculate the proper ranking from the shap values
+    ranking = np.sum(np.sum(abs(shap_values), axis=1), axis=0)
+
+    # get the indices and sort them in descending order
+    idx = np.argsort(ranking)[::-1]
+
+    # get only the indices of the leading DS Nodes and the labels
+    idx = idx[idx < len(deepSets_features)]
+    topDS = idx[:10]
+    topDS_labels = features_list[topDS]
+
+    # get only the indices of the leading DS jets Nodes and the labels
+    idx_jets = idx[idx < len(deepSets_features_jets)]
+    topDS_jets = idx_jets[:10]
+    topDS_jets_labels = features_list[topDS_jets]
+
+    # get only the indices of the leading DS pairs Nodes and the labels
+    idx_pairs = idx[((idx < len(deepSets_features)) & (idx >= len(deepSets_features_jets)))]
+    topDS_pairs = idx_pairs[:10]
+    topDS_pairs_labels = features_list[topDS_pairs]
+    from IPython import embed; embed()
+
+    correlation_matrix(topDS, inp_full, topDS_labels, event_labels, "Event_Features", output)
+    correlation_matrix(topDS_jets, inp_full, topDS_jets_labels, event_labels, "Event_Features_DSJ", output)
+    correlation_matrix(topDS_pairs, inp_full, topDS_pairs_labels, event_labels, "Event_Features_DSP", output)
 
 
-def feature_ranking_deep_sets_pp(
+def plot_shap_deep_sets_ps(
         model: tf.keras.models.Model,
         train: DotDict,
         output: law.FileSystemDirectoryTarget,
@@ -629,38 +528,34 @@ def feature_ranking_deep_sets_pp(
 
     # get the Deep Sets model Output that will be used as Input for the subsequent FF Network
     subset_idx = 150
-    # Output of DeepSets for Jets
-    deepSets_jets_op_full = model.deepset_jets_network.predict(train['inputs'])
-    deepSets_jets_op2_full = model.deepset_jets_network.predict(train['inputs'])
-    deepSets_jets_op = deepSets_jets_op_full[:subset_idx]
-    deepSets_jets_op2 = deepSets_jets_op2_full[-subset_idx:]
-    # Output of DeepSets for Pairs
-    deepSets_pairs_op_full = model.deepset_pairs_network.predict(train['pairs_inp'])
-    deepSets_pairs_op2_full = model.deepset_pairs_network.predict(train['pairs_inp'])
-    deepSets_pairs_op = deepSets_pairs_op_full[:subset_idx]
-    deepSets_pairs_op2 = deepSets_pairs_op2_full[-subset_idx:]
+    # Output of DeepSetsPS
+    deepSets_op_full = model.deepset_network.predict([train['inputs'], train['pairs_inp']])
+    deepSets_op = deepSets_op_full[:subset_idx]
+    deepSets_op2 = deepSets_op_full[-subset_idx:]
 
-    inp_full = np.concatenate((deepSets_jets_op_full, deepSets_pairs_op_full, train['inputs2']), axis=1)
+    inp_full = np.concatenate((deepSets_op_full, train['inputs2']), axis=1)
 
-    deepSets_features_jets = [f'DeepSets Jets{i+1}' for i in range(deepSets_jets_op.shape[1])]
-    deepSets_features_pairs = [f'DeepSets Pairs{i+1}' for i in range(deepSets_pairs_op.shape[1])]
+    deepSets_features_jets = [f'DeepSets Jets{i+1}' for i in range(deepSets_op.shape[1] / 2)]
+    deepSets_features_pairs = [f'DeepSets Pairs{i+1}' for i in range(deepSets_op.shape[1] / 2)]
     deepSets_features = deepSets_features_jets + deepSets_features_pairs
 
     # calculate shap values
-    concat_inp = np.concatenate((deepSets_jets_op, deepSets_pairs_op, train['inputs2'][:subset_idx]), axis=1)
-    concat_inp2 = np.concatenate((deepSets_jets_op2, deepSets_pairs_op2, train['inputs2'][-subset_idx:]), axis=1)
+    concat_inp = np.concatenate((deepSets_op, train['inputs2'][:subset_idx]), axis=1)
+    concat_inp2 = np.concatenate((deepSets_op2, train['inputs2'][-subset_idx:]), axis=1)
     ff_model = model.feed_forward_network
     explainer = shap.KernelExplainer(ff_model, concat_inp)
     shap_values = explainer.shap_values(concat_inp2)
 
     # Plot Feature Ranking
-    features_list = deepSets_features + event_features
+    event_labels = list(map(latex_dict.get, event_features))
+    features_list = deepSets_features + event_labels
     fig1 = plt.figure()
     shap.summary_plot(shap_values, plot_type="bar",
-        feature_names=features_list, class_names=class_list, show=False, max_display=30)
+        feature_names=features_list, class_names=class_list, show=False, max_display=25)
     plt.title('Feature Importance Ranking')
-    output.child("DeepSetPP_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
+    output.child("DeepSetPS_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
 
+    # Begin preparation for the correlation matrix
     shap_values = np.array(shap_values)
     features_list = np.array(features_list)
 
@@ -685,10 +580,55 @@ def feature_ranking_deep_sets_pp(
     topDS_pairs = idx_pairs[:10]
     topDS_pairs_labels = features_list[topDS_pairs]
 
-    event_labels = list(map(latex_dict.get, event_features))
-    correlation_matrix(topDS, inp_full, topDS_labels, event_labels, "", output)
-    correlation_matrix(topDS_jets, inp_full, topDS_jets_labels, event_labels, "_jets", output)
-    correlation_matrix(topDS_pairs, inp_full, topDS_pairs_labels, event_labels, "_pairs", output)
+    correlation_matrix(topDS, inp_full, topDS_labels, event_labels, "Event_Features", output)
+    correlation_matrix(topDS_jets, inp_full, topDS_jets_labels, event_labels, "Event_Features_DSJ", output)
+    correlation_matrix(topDS_pairs, inp_full, topDS_pairs_labels, event_labels, "Event_Features_DSP", output)
+
+
+def plot_shap_baseline(
+        model: tf.keras.models.Model,
+        train: DotDict,
+        output: law.FileSystemDirectoryTarget,
+        process_insts: tuple[od.Process],
+        target_dict,
+        feature_names,
+        features_pairs,
+        baseline_jets,
+        baseline_pairs,
+        model_type,
+) -> None:
+    feature_names_jets = np.repeat([f"Jet{i} " for i in range(1, baseline_jets + 1)], len(feature_names[0]))
+    feature_names_jets = np.char.add(feature_names_jets, np.tile(feature_names[0], baseline_jets)).tolist()
+    feature_names_pairs = np.repeat([f"Pair{i} " for i in range(1, baseline_pairs + 1)], len(features_pairs))
+    feature_names_pairs = np.char.add(feature_names_pairs, np.tile(features_pairs, baseline_pairs)).tolist()
+    features_inputs2 = feature_names[1]
+
+    if model_type == "baseline_pairs":
+        features = feature_names_jets + feature_names_pairs + features_inputs2
+        inp = train["inputs_baseline_pairs"].numpy()
+    else:
+        features = feature_names_jets + features_inputs2
+        inp = train["inputs_baseline"].numpy()
+
+    # make sure class names are sorted correctly in correspondence to their target index
+    classes = sorted(target_dict.items(), key=lambda x: x[1])
+    class_sorted = np.array(classes)[:, 0]
+    class_list = ['empty' for i in range(len(process_insts))]
+    for proc in process_insts:
+        idx = np.where(class_sorted == proc.name)
+        class_list[idx[0][0]] = proc.label
+
+    # calculate shap values
+    subset_idx = 150
+    explainer = shap.KernelExplainer(model, inp[:subset_idx])
+    shap_values = explainer.shap_values(inp[-subset_idx:])
+
+    # Feature Ranking
+    fig1 = plt.figure()
+    shap.summary_plot(shap_values, inp[:subset_idx], plot_type="bar",
+        feature_names=features, class_names=class_list, show=False, max_display=25)
+    plt.title('Feature Importance Ranking')
+    output.child("Feature_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
 
 
 def plot_feature_ranking_deep_sets(
@@ -731,55 +671,9 @@ def plot_feature_ranking_deep_sets(
     features_list = feature_names[0] + feature_names[1]
     fig1 = plt.figure()
     shap.summary_plot(shap_values, plot_type="bar",
-        feature_names=features_list, class_names=class_list, show=False)
+        feature_names=features_list, class_names=class_list, show=False, max_display=25)
     plt.title('Feature Importance Ranking')
     output.child("Feature_Ranking_DeepSets.pdf", type="f").dump(fig1, formatter="mpl")
-
-
-def plot_shap_baseline(
-        model: tf.keras.models.Model,
-        train: DotDict,
-        output: law.FileSystemDirectoryTarget,
-        process_insts: tuple[od.Process],
-        target_dict,
-        feature_names,
-        features_pairs,
-        baseline_jets,
-        baseline_pairs,
-        model_type,
-) -> None:
-    feature_names_jets = np.repeat([f"Jet{i} " for i in range(1, baseline_jets + 1)], len(feature_names[0]))
-    feature_names_jets = np.char.add(feature_names_jets, np.tile(feature_names[0], baseline_jets)).tolist()
-    feature_names_pairs = np.repeat([f"Pair{i} " for i in range(1, baseline_pairs + 1)], len(features_pairs))
-    feature_names_pairs = np.char.add(feature_names_pairs, np.tile(features_pairs, baseline_pairs)).tolist()
-    features_inputs2 = feature_names[1]
-
-    if model_type == "baseline_pairs":
-        features = feature_names_jets + feature_names_pairs + features_inputs2
-        inp = train["inputs_baseline_pairs"].numpy()
-    else:
-        features = feature_names_jets + features_inputs2
-        inp = train["inputs_baseline"].numpy()
-
-    # make sure class names are sorted correctly in correspondence to their target index
-    classes = sorted(target_dict.items(), key=lambda x: x[1])
-    class_sorted = np.array(classes)[:, 0]
-    class_list = ['empty' for i in range(len(process_insts))]
-    for proc in process_insts:
-        idx = np.where(class_sorted == proc.name)
-        class_list[idx[0][0]] = proc.label
-
-    # calculate shap values
-    subset_idx = 15
-    explainer = shap.KernelExplainer(model, inp[:subset_idx])
-    shap_values = explainer.shap_values(inp[-subset_idx:])
-
-    # Feature Ranking
-    fig1 = plt.figure()
-    shap.summary_plot(shap_values, inp[:subset_idx], plot_type="bar",
-        feature_names=features, class_names=class_list, show=False)
-    plt.title('Feature Ranking')
-    output.child("Feature_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
 
 
 def write_info_file(

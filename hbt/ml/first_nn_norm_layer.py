@@ -21,10 +21,8 @@ from hbt.config.categories import add_categories_ml
 from columnflow.columnar_util import EMPTY_FLOAT
 from hbt.ml.plotting import (
     plot_loss, plot_accuracy, plot_confusion, plot_roc_ovr, plot_output_nodes, plot_significance,
-    write_info_file, plot_shap_baseline, plot_shap_values_deep_sets_mean,
-    plot_feature_ranking_deep_sets, plot_shap_values_deep_sets_sum,
-    plot_shap_values_deep_sets, plot_confusion2, check_distribution,
-    plot_roc_ovr2, feature_ranking_deep_sets_pp,
+    write_info_file, plot_shap_baseline, plot_feature_ranking_deep_sets, plot_shap_deep_sets,
+    check_distribution, plot_shap_deep_sets_pp, plot_shap_deep_sets_ps,
 )
 
 np = maybe_import("numpy")
@@ -665,25 +663,24 @@ class SimpleDNN(MLModel):
         if self.model_type == "baseline":
             train["prediction"] = call_func_safe(model, train['inputs_baseline'])
             validation["prediction"] = call_func_safe(model, validation['inputs_baseline'])
-            # call_func_safe(plot_shap_baseline, model, train, output, self.process_insts, self.target_dict, feature_names, self.features_pairs, self.baseline_jets, self.baseline_pairs, self.model_type)
+            call_func_safe(plot_shap_baseline, model, train, output, self.process_insts, self.target_dict, feature_names, self.features_pairs, self.baseline_jets, self.baseline_pairs, self.model_type)
         elif self.model_type == "baseline_pairs":
             train["prediction"] = call_func_safe(model, train['inputs_baseline_pairs'])
             validation["prediction"] = call_func_safe(model, validation['inputs_baseline_pairs'])
-            # call_func_safe(plot_shap_baseline, model, train, output, self.process_insts, self.target_dict, feature_names, self.features_pairs, self.baseline_jets, self.baseline_pairs, self.model_type)
-
+            call_func_safe(plot_shap_baseline, model, train, output, self.process_insts, self.target_dict, feature_names, self.features_pairs, self.baseline_jets, self.baseline_pairs, self.model_type)
         elif self.model_type == "DeepSets":
             train["prediction"] = call_func_safe(model, [train['inputs'], train['inputs2']])
             validation["prediction"] = call_func_safe(model, [validation['inputs'], validation['inputs2']])
-            # plot shap for Deep Sets
+            call_func_safe(plot_shap_deep_sets, model, train, output, self.process_insts, self.target_dict, feature_names, self.latex_dict)
             # call_func_safe(plot_feature_ranking_deep_sets, masking_model, train, output, self.process_insts, self.target_dict, feature_names, self.train_sorting)
-            # call_func_safe(plot_shap_values_deep_sets, model, train, output, self.process_insts, self.target_dict, feature_names, self.baseline_jets, self.baseline_pairs, self.model_type)
         elif self.model_type == "DeepSetsPS":
             train["prediction"] = call_func_safe(model, [[train['inputs'], train['pairs_inp']], train['inputs2']])
             validation["prediction"] = call_func_safe(model, [[validation['inputs'], validation['pairs_inp']], validation['inputs2']])
+            call_func_safe(plot_shap_deep_sets_ps, model, train, output, self.process_insts, self.target_dict, feature_names, self.latex_dict)
         elif self.model_type == "DeepSetsPP":
             train["prediction"] = call_func_safe(model, [train["inputs"], train["pairs_inp"], train["inputs2"]])
             validation["prediction"] = call_func_safe(model, [validation["inputs"], validation["pairs_inp"], validation["inputs2"]])
-            call_func_safe(feature_ranking_deep_sets_pp, model, train, output, self.process_insts, self.target_dict, feature_names, self.latex_dict)
+            call_func_safe(plot_shap_deep_sets_pp, model, train, output, self.process_insts, self.target_dict, feature_names, self.latex_dict)
 
         # make some plots of the history
         call_func_safe(plot_accuracy, model.history.history, output)
@@ -712,7 +709,6 @@ class SimpleDNN(MLModel):
         call_func_safe(check_distribution, output, input1_validation[0], input1_validation[1], self.masking_val, "validation")
         call_func_safe(check_distribution, output, input2_train[0], input2_train[1], self.masking_val, "train")
         call_func_safe(check_distribution, output, input2_validation[0], input2_validation[1], self.masking_val, "validation")
-
 
     def train(
         self,

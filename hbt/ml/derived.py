@@ -118,7 +118,7 @@ default_cls_dict = {
     "activation": "relu",  # Options: elu, relu, prelu, selu, tanh, softmax
     "learningrate": 0.01,
     "batchsize": 256,
-    "epochs": 150,
+    "epochs": 15,
     "eqweight": True,
     "dropout": 0.50,
     "processes": processes,
@@ -160,7 +160,7 @@ model_type = "DeepSetsPP"
 sequential_mode = "concat"
 cls_dict = default_cls_dict
 cls_dict["model_type"] = model_type
-cls_dict["model_name"] = f"{len(processes)}classes_{model_type}_2"
+cls_dict["model_name"] = f"{len(processes)}classes_{model_type}"
 cls_dict["sequential_mode"] = sequential_mode
 cls_dict["nodes_deepSets"] = nodes_deepSets
 cls_dict["nodes_deepSets_pairs"] = nodes_deepSets

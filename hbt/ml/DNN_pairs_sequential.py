@@ -327,8 +327,8 @@ class CombinedDeepSetPairsSequentialNetwork(tf.keras.Model):
 
     def call(self, inputs):
         deepset_inputs, feedforward_inputs = inputs
-        deepset_output = self.deepset_network(deepset_inputs)
-        deepset_output = self.concat_layer(deepset_output)
+        jet_aggregations, pairs_aggregations = self.deepset_network(deepset_inputs)
+        deepset_output = self.concat_layer([jet_aggregations, pairs_aggregations])
         concatenated_inputs = self.concat_layer((deepset_output, feedforward_inputs))
         output = self.feed_forward_network(concatenated_inputs)
         return output
