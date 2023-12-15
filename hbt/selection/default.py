@@ -63,10 +63,12 @@ def default(
 
     # filter bad data events according to golden lumi mask
     if self.dataset_inst.is_data:
-        results.steps["golden"] = self[json_filter](events, **kwargs)
+        events, json_filter_results = self[json_filter](events, **kwargs)
+        results += json_filter_results
 
     # met filter selection
-    results.steps["met_filter"] = self[met_filters](events, **kwargs)
+    events, met_filter_results = self[met_filters](events, **kwargs)
+    results += met_filter_results
 
     # trigger selection
     events, trigger_results = self[trigger_selection](events, **kwargs)
@@ -96,11 +98,15 @@ def default(
         events = self[pu_weight](events, **kwargs)
 
         # btag weights
-        events = self[btag_weights](events, results.x.jet_mask, **kwargs)
+        events = self[btag_weights](
+            events,
+            ak.fill_none(results.x.jet_mask, False, axis=-1),
+            **kwargs,
+        )
 
     # combined event selection after all steps
     event_sel = reduce(and_, results.steps.values())
-    results.main["event"] = event_sel
+    results.event = event_sel
 
     # combined event seleciton after all but the bjet step
     event_sel_nob = results.steps.all_but_bjet = reduce(
@@ -159,7 +165,7 @@ def default(
         }
         # combinations
         group_combinations.append(("process", "njet"))
-    events = self[increment_stats](
+    events, results = self[increment_stats](
         events,
         results,
         stats,

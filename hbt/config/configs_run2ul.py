@@ -203,7 +203,7 @@ def add_config(
     # selector step groups for conveniently looping over certain steps
     # (used in cutflow tasks)
     cfg.x.selector_step_groups = {
-        "default": ["met_filter", "trigger", "lepton_no_veto", "lepton", "jet", "bjet"],
+        "default": ["json", "met_filter", "trigger", "lepton_no_veto", "lepton", "jet", "bjet"],
     }
 
     # custom method and sandbox for determining dataset lfns
@@ -560,7 +560,7 @@ def add_config(
     )
 
     # external files
-    json_mirror = "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-dfd90038"
+    json_mirror = "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-9ea86c4c"
     cfg.x.external_files = DotDict.wrap({
         # jet energy correction
         "jet_jerc": (f"{json_mirror}/POG/JME/{year}{corr_postfix}_UL/jet_jerc.json.gz", "v1"),
@@ -685,7 +685,7 @@ def add_config(
             "CustomVBFMaskJets2.btagDeepB",
         },
         "cf.MergeSelectionMasks": {
-            "normalization_weight", "process_id", "category_ids", "cutflow.*",
+            "cutflow.*",
         },
         "cf.UniteColumns": {
             "*",
@@ -777,7 +777,7 @@ def add_config(
         cfg.x.get_dataset_lfns = get_dataset_lfns
 
         # define a custom sandbox
-        cfg.x.get_dataset_lfns_sandbox = dev_sandbox("bash::$CF_BASE/sandboxes/cf_prod.sh")
+        cfg.x.get_dataset_lfns_sandbox = dev_sandbox("bash::$CF_BASE/sandboxes/cf.sh")
 
         # define custom remote fs's to look at
         cfg.x.get_dataset_lfns_remote_fs = lambda dataset_inst: f"wlcg_fs_{cfg.campaign.x.custom['name']}"

@@ -49,7 +49,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     .. code-block:: python
 
         cfg.x.external_files = DotDict.wrap({
-            "tau_sf": "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/TAU/2017_UL/tau.json.gz",  # noqa
+            "tau_sf": "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-9ea86c4c/POG/TAU/2017_UL/tau.json.gz",  # noqa
         })
 
     *get_tau_file* can be adapted in a subclass in case it is stored differently in the external
@@ -98,7 +98,7 @@ def tau_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     if self.id_vs_jet_corrector.version == 0:
         # pt, dm, genmatch, jet wp, syst, sf type
         tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], "VVLoose", syst, "dm")
-    elif self.id_vs_jet_corrector.version == 1:
+    elif self.id_vs_jet_corrector.version in (1, 2):
         # pt, dm, genmatch, jet wp, e wp, syst, sf type
         tau_args = lambda mask, syst: (pt[mask], dm[mask], match[mask], "Loose", "VVLoose", syst, "dm")
     else:
@@ -200,9 +200,9 @@ def tau_weights_setup(self: Producer, reqs: dict, inputs: dict, reader_targets: 
     self.id_vs_mu_corrector = correction_set[f"{tagger_name}VSmu"]
 
     # check versions
-    assert self.id_vs_jet_corrector.version in [0, 1]
-    assert self.id_vs_e_corrector.version in [0, 1]
-    assert self.id_vs_mu_corrector.version in [0, 1]
+    assert self.id_vs_jet_corrector.version in (0, 1, 2)
+    assert self.id_vs_e_corrector.version in (0,)
+    assert self.id_vs_mu_corrector.version in (0,)
 
 
 @producer(
@@ -230,7 +230,7 @@ def trigger_weights(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     .. code-block:: python
 
         cfg.x.external_files = DotDict.wrap({
-            "tau_sf": "/afs/cern.ch/user/m/mrieger/public/mirrors/jsonpog-integration-f018adfb/POG/TAU/2017_UL/tau.json.gz",  # noqa
+            "tau_sf": "/afs/cern.ch/work/m/mrieger/public/mirrors/jsonpog-integration-9ea86c4c/POG/TAU/2017_UL/tau.json.gz",  # noqa
         })
 
     *get_tau_file* can be adapted in a subclass in case it is stored differently in the external
