@@ -43,6 +43,14 @@ def add_variables(config: od.Config) -> None:
     )
 
     # Jet Plots
+    config.add_variable(
+        name="jet_energy",
+        expression="CollJet.E",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"Colljet energy",
+    )
     # jet 1
     config.add_variable(
         name="jet1_energy",
@@ -873,7 +881,7 @@ def add_variables(config: od.Config) -> None:
         name="GenVBFInvMass",
         expression="GenPartVBFpartonInvMass",
         null_value=EMPTY_FLOAT,
-        binning=(100, 0.0, 5100.0),
+        binning=(75, 0.0, 5100.0),
         unit="GeV",
         x_title=r"Gen VBF Parton $m_{VBF1,VBF2}$",
     )
@@ -889,8 +897,7 @@ def add_variables(config: od.Config) -> None:
         name="GenVBFdEta",
         expression="GenPartVBFpartondEta",
         null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 10.0),
-        unit="GeV",
+        binning=(45, 0.0, 12.0),
         x_title=r"Gen VBF Parton $\Delta \eta$",
     )
     config.add_variable(
@@ -1318,10 +1325,60 @@ def add_variables(config: od.Config) -> None:
     )
     config.add_variable(
         name="energy_corr",
-        expression="energy_corr",
-        binning=(100, 700, 2000000),
+        expression="CustomVBFMaskJets2_energy_corr",
+        binning=(100, 700, 1000000),
         unit=r"$GeV^{2}$",
         x_title="Energy Correlation",
+    )
+    config.add_variable(
+        name="energy_corr_root",
+        expression="CustomVBFMaskJets2_energy_corr_root",
+        binning=(100, 700, 1000000),
+        unit=r"$GeV^{2}$",
+        x_title="Energy Correlation",
+    )
+    config.add_variable(
+        name="energy_corr_sqr",
+        expression="CustomVBFMaskJets2_energy_corr_sqr",
+        binning=(100, 700, 1000000),
+        unit=r"$GeV^{2}$",
+        x_title="Energy Correlation",
+    )
+    config.add_variable(
+        name="sphericity",
+        expression="CustomVBFMaskJets2_sphericity",
+        binning=(15, 0, 1),
+        x_title="Transversal Sphericity",
+    )
+    config.add_variable(
+        name="thrust",
+        expression="CustomVBFMaskJets2_thrust",
+        binning=(15, 0, 1),
+        x_title="Thrust",
+    )
+    config.add_variable(
+        name="pt_thrust",
+        expression="CustomVBFMaskJets2_pt_thrust",
+        binning=(15, 0, 1),
+        x_title="Transversal Thrust",
+    )
+    config.add_variable(
+        name="jet_pt_frac",
+        expression="CustomVBFMaskJets2_jet_pt_frac",
+        binning=(15, 0, 1),
+        x_title=r"Jet $p_{T}$ Fractions",
+    )
+    config.add_variable(
+        name="jet_pt_frac2",
+        expression="CustomVBFMaskJets2_jet_pt_frac[:,:2]",
+        binning=(15, 0, 1),
+        x_title=r"Jet $p_{T}$ Fractions",
+    )
+    config.add_variable(
+        name="event_pt_frac",
+        expression="CustomVBFMaskJets2_event_pt_frac",
+        binning=(15, 0, 1),
+        x_title=r"$p_{T}$ Fractions",
     )
     config.add_variable(
         name="met_phi",
@@ -1770,7 +1827,7 @@ def add_variables(config: od.Config) -> None:
         name="GenVBFPartons_pairs_inv_mass",
         expression="GenVBFPartons_pairs_inv_mass",
         null_value=EMPTY_FLOAT,
-        binning=(100, 0.0, 5100.0),
+        binning=(50, 0.0, 5100.0),
         unit="GeV",
         x_title=r"VBF Partons $m_{VBF1,VBF2}$ after VBF Pair Selection",
     )
@@ -1778,8 +1835,7 @@ def add_variables(config: od.Config) -> None:
         name="GenVBFPartons_pairs_dEta",
         expression="GenVBFPartons_pairs_dEta",
         null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 10.0),
-        unit="GeV",
+        binning=(50, 0.0, 10.0),
         x_title=r"VBF Partons $\Delta \eta$ after VBF Pair Selection",
     )
     config.add_variable(
@@ -1795,8 +1851,22 @@ def add_variables(config: od.Config) -> None:
         expression="GenVBFPartons_trigger_dEta",
         null_value=EMPTY_FLOAT,
         binning=(40, 0.0, 10.0),
-        unit="GeV",
         x_title=r"VBF Partons $\Delta \eta$ after VBF Trigger Selection",
+    )
+    config.add_variable(
+        name="VBFpartonPt",
+        expression="genVBFparton.pt",
+        null_value=EMPTY_FLOAT,
+        binning=(50, 0.0, 1000.0),
+        unit="GeV",
+        x_title=r"VBF Partons $p_{T}$",
+    )
+    config.add_variable(
+        name="VBFpartonEta",
+        expression="genVBFparton.eta",
+        null_value=EMPTY_FLOAT,
+        binning=(50, -9.0, 9.0),
+        x_title=r"VBF Partons $\eta$",
     )
 
     # Tau Partons

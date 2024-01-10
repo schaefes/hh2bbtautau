@@ -35,56 +35,56 @@ def add_categories(config: od.Config) -> None:
         config,
         name="kin_selections_ak4",
         id=2,
-        selection="sel_incl",
+        selection="cat_incl",
         label="Kinematic Gen Sel.\nAk4 Sel.",
     )
     add_category(
         config,
         name="no_kin_selections_ak4",
         id=3,
-        selection="sel_incl",
+        selection="cat_incl",
         label="Ak4 Sel.",
     )
     add_category(
         config,
         name="kin_selections_vbfmask",
         id=4,
-        selection="sel_incl",
+        selection="cat_incl",
         label="Kinematic Gen Sel.\nVBF Mask Sel.",
     )
     add_category(
         config,
         name="no_kin_selections_vbfmask",
         id=5,
-        selection="sel_incl",
+        selection="cat_incl",
         label="VBF Mask\nSel.",
     )
     add_category(
         config,
         name="kin_selections_pairs",
         id=6,
-        selection="sel_incl",
+        selection="cat_incl",
         label="Kinematic Gen Sel.\nVBF Pair Sel.",
     )
     add_category(
         config,
         name="no_kin_selections_pairs",
         id=7,
-        selection="sel_incl",
+        selection="cat_incl",
         label="VBF Pair Sel.",
     )
     add_category(
         config,
         name="kin_selections_trigger",
         id=8,
-        selection="sel_incl",
+        selection="cat_incl",
         label="Kinematic Gen Sel.\nVBF Trigger Sel.",
     )
     add_category(
         config,
         name="no_kin_selections_trigger",
         id=9,
-        selection="sel_incl",
+        selection="cat_incl",
         label="VBF Trigger Sel.",
     )
 
@@ -93,105 +93,105 @@ def add_categories(config: od.Config) -> None:
         config,
         name="no_lepton_veto",
         id=10,
-        selection="sel_incl",
+        selection="cat_incl",
         label="No Lepton Veto",
     )
     add_category(
         config,
         name="no_tau_iso",
         id=11,
-        selection="sel_incl",
+        selection="cat_incl",
         label="No $\\tau$ Iso",
     )
     add_category(
         config,
         name="no_tau_indices1",
         id=12,
-        selection="sel_incl",
+        selection="cat_incl",
         label="No min #$\\tau$ for\n$e$ and $\\mu$ ",
     )
     add_category(
         config,
         name="tau_15pt_2_5eta",
         id=13,
-        selection="sel_incl",
+        selection="cat_incl",
         label="Min $\\tau$ $p_{T}$=15GeV\nMax $\\eta$=2.5",
     )
     add_category(
         config,
         name="tau_e_mu_15pt_2_5eta",
         id=14,
-        selection="sel_incl",
+        selection="cat_incl",
         label="Min $\\tau$,$e$,$\\mu$\n$p_{T}$=15GeV\nMax $\\eta$=2.5",
     )
     add_category(
         config,
         name="DeepTau_keep_highest_bin",
         id=15,
-        selection="sel_incl",
+        selection="cat_incl",
         label="DeepTauId max\nscore kept",
     )
     add_category(
         config,
         name="Combinedv1",
         id=16,
-        selection="sel_incl",
+        selection="cat_incl",
         label="Kinematic\nDeepTauId\nNo $\\tau$ Iso",
     )
     add_category(
         config,
         name="no_tau_indices_at_all",
         id=17,
-        selection="sel_incl",
+        selection="cat_incl",
         label="No min #$\\tau$ for\n$e$, $\\mu$, $\\tau$",
     )
     add_category(
         config,
         name="no_tau_iso_mask",
         id=18,
-        selection="sel_incl",
+        selection="cat_incl",
         label="No $\\tau$ Iso Mask",
     )
     add_category(
         config,
         name="Combinedv2",
         id=19,
-        selection="sel_incl",
+        selection="cat_incl",
         label="Combined Cuts\nV2",
     )
     add_category(
         config,
         name="had_tau_parton",
         id=20,
-        selection="sel_incl",
+        selection="cat_incl",
         label="Hadronic Decay",
     )
     add_category(
         config,
         name="e_tau_parton",
         id=21,
-        selection="sel_incl",
+        selection="cat_incl",
         label="Decay to e",
     )
     add_category(
         config,
         name="mu_tau_parton",
         id=22,
-        selection="sel_incl",
+        selection="cat_incl",
         label=r"Decay to $\mu$",
     )
     add_category(
         config,
         name="all_tau_partons_channel",
         id=23,
-        selection="sel_incl",
+        selection="cat_incl",
         label=r"All decay channels",
     )
     add_category(
         config,
         name="CustomVBFMask",
         id=24,
-        selection="sel_incl",
+        selection="cat_incl",
         label="Custom\nVBF Mask",
     )
 
