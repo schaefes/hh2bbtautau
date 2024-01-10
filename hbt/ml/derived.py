@@ -15,23 +15,38 @@ np = maybe_import("numpy")
 
 processes = [
     "graviton_hh_ggf_bbtautau_m400",
-    "hh_ggf_bbtautau",
+    # "hh_ggf_bbtautau",
     "graviton_hh_vbf_bbtautau_m400",
-    # "graviton_hh_ggf_bbtautau_m1250",
+    # "tt_fh",
+    "tt",
+    "dy",
+    # "tt_dl",
+    # "dy_lep_pt50To100",
+    # "dy_lep_pt100To250",
+    # "dy_lep_pt250To400",
+    # "dy_lep_pt400To650",
+    # "dy_lep_pt650",
 ]
 
 ml_process_weights = {
-    "graviton_hh_ggf_bbtautau_m400": 1.5,
-    "hh_ggf_bbtautau": 1,
-    "graviton_hh_vbf_bbtautau_m400": 1,
-    # "graviton_hh_ggf_bbtautau_m1250": 1,
+    "graviton_hh_ggf_bbtautau_m400": 0,
+    # "hh_ggf_bbtautau": 0,
+    "graviton_hh_vbf_bbtautau_m400": 0,
+    "tt": 0,
+    "dy": 0,
+    # "dy": 0,
 }
 
 dataset_names = {
     "graviton_hh_ggf_bbtautau_m400_madgraph",
-    "hh_ggf_bbtautau_madgraph",
     "graviton_hh_vbf_bbtautau_m400_madgraph",
-    # "graviton_hh_ggf_bbtautau_m1250_madgraph",
+    "tt_dl_powheg",
+    "tt_sl_powheg",
+    "dy_lep_pt50To100_amcatnlo",
+    "dy_lep_pt100To250_amcatnlo",
+    "dy_lep_pt250To400_amcatnlo",
+    "dy_lep_pt400To650_amcatnlo",
+    "dy_lep_pt650_amcatnlo",
 }
 
 jet_collection = "CustomVBFMaskJets2"
@@ -63,8 +78,8 @@ latex_dict = {
     f"{jet_collection}_bFlavtag": "Deep Flav B",
     f"{jet_collection}_btagCvL": "Deep CvL",
     f"{jet_collection}_bFlavtagCvL": "Deep Flav CvL",
-    f"{jet_collection}_btagCvL": "Deep CvB",
-    f"{jet_collection}_bFlavtagCvL": "Deep Flav CvB",
+    f"{jet_collection}_btagCvB": "Deep CvB",
+    f"{jet_collection}_bFlavtagCvB": "Deep Flav CvB",
     f"{jet_collection}_btagQG": "Deep Flav QG",
     f"{jet_collection}_mbb": r"$m_{\bar{b}b}$",
     f"{jet_collection}_mHH": r"$m_{HH}$",
@@ -118,9 +133,10 @@ default_cls_dict = {
     "activation": "relu",  # Options: elu, relu, prelu, selu, tanh, softmax
     "learningrate": 0.01,
     "batchsize": 256,
-    "epochs": 15,
+    "epochs": 150,
     "eqweight": True,
     "dropout": 0.50,
+    "l2": 1e-6,
     "processes": processes,
     "ml_process_weights": ml_process_weights,
     "dataset_names": dataset_names,
@@ -132,7 +148,6 @@ default_cls_dict = {
     "batch_norm_ff": True,
     "aggregations": ["Sum", "Max", "Mean"],
     "aggregations_pairs": ["Sum", "Max", "Mean"],
-    "L2": False,
     "norm_features": norm_features,
     "quantity_weighting": True,
     "jet_num_cut": 1,
@@ -148,19 +163,19 @@ default_cls_dict = {
     "latex_dict": latex_dict,
 }
 
-nodes_deepSets_op = default_cls_dict["baseline_jets"] * default_cls_dict["n_features"]
+nodes_deepSets_op = 16
 nodes_deepSets = [80, 60, 60, nodes_deepSets_op]
 nodes_ff = [256, 256, 256, 256, 256, 256]
 
 
 # test model settings
 # choose str "baseline", "baseline_pairs", "DeepSets", "DeepSetsPP", "DeepSetsPS"
-model_type = "DeepSetsPP"
+model_type = "DeepSets"
 # chose what kind of sequential DS mode is used: "sum", "concat", "two_inp"
-sequential_mode = "concat"
+sequential_mode = "sum"
 cls_dict = default_cls_dict
 cls_dict["model_type"] = model_type
-cls_dict["model_name"] = f"{len(processes)}classes_{model_type}"
+cls_dict["model_name"] = f"{len(processes)}classes_{model_type}_bg_test"
 cls_dict["sequential_mode"] = sequential_mode
 cls_dict["nodes_deepSets"] = nodes_deepSets
 cls_dict["nodes_deepSets_pairs"] = nodes_deepSets
@@ -169,3 +184,6 @@ cls_dict["activation_func_deepSets"] = ["selu" for i in range(len(nodes_deepSets
 cls_dict["activation_func_ff"] = ["selu" for i in range(len(nodes_ff))]
 
 test_dnn = SimpleDNN.derive("test", cls_dict=cls_dict)
+
+# law run cf.PlotMLResults --plot-function roc --general-settings "evaluation_type=ovr" --ml-model test --datasets graviton_hh_ggf_bbtautau_m400_madgraph,graviton_hh_vbf_bbtautau_m400_madgraph,tt_dl_powheg,tt_sl_powheg,dy_lep_pt50To100_amcatnlo,dy_lep_pt100To250_amcatnlo,dy_lep_pt250To400_amcatnlo,dy_lep_pt400To650_amcatnlo,dy_lep_pt650_amcatnlo --version PairsML
+# law run cf.MLTraining --version PairsML --ml-model test --config run2_2017_nano_uhh_v11_limited --cf.MLTraining-workflow htcondor --cf.MLTraining-htcondor-memory 20GB

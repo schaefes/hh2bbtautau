@@ -77,21 +77,22 @@ class Dummy_2(tf.keras.Model):
 
 class DenseBlock(tf.keras.layers.Layer):
 
-    def __init__(self, nodes, activation, deepset=False):
+    def __init__(self, nodes, activation, n_l2, deepset=False):
         super(DenseBlock, self).__init__()
         self.deepset = deepset
 
         if self.deepset:
-            layers = self.timedistributed_dense_block(nodes, activation)
+            layers = self.timedistributed_dense_block(nodes, activation, n_l2)
         else:
-            layers = self.dense_block(nodes, activation)
+            layers = self.dense_block(nodes, activation, n_l2)
         self.dense, self.batchnorm, self.activation = layers
 
-    def dense_block(self, nodes, activation):
+    def dense_block(self, nodes, activation, n_l2):
         name_prefix = 'FeedForward/DenseBlock/'
-
+        l2 = tf.keras.regularizers.l2(n_l2)
         layers = (tf.keras.layers.Dense(nodes, use_bias=False,
-                                        name=name_prefix + 'Dense'),
+                                        name=name_prefix + 'Dense',
+                                        kernel_regularizer=l2),
                   tf.keras.layers.BatchNormalization(
                       name=name_prefix + 'BatchNorm'),
                   tf.keras.layers.Activation(
@@ -99,11 +100,12 @@ class DenseBlock(tf.keras.layers.Layer):
                   )
         return layers
 
-    def timedistributed_dense_block(self, nodes, activation):
+    def timedistributed_dense_block(self, nodes, activation, n_l2):
         name_prefix = 'DeepSet/DenseBlock/'
-
+        l2 = tf.keras.regularizers.l2(n_l2)
         layers = (tf.keras.layers.Dense(nodes, use_bias=False,
-                                        name=name_prefix + 'Dense'),
+                                        name=name_prefix + 'Dense',
+                                        kernel_regularizer=l2),
                   tf.keras.layers.BatchNormalization(
                       name=name_prefix + 'BatchNorm'),
                   tf.keras.layers.Activation(
@@ -121,11 +123,11 @@ class DenseBlock(tf.keras.layers.Layer):
 
 class DeepSet(tf.keras.Model):
 
-    def __init__(self, nodes, activations, aggregations, masking_val, mean, std):
+    def __init__(self, nodes, activations, n_l2, aggregations, masking_val, mean, std):
         super(DeepSet, self).__init__()
         self.aggregations = aggregations
         self.masking_val = masking_val
-        self.hidden_layers = [DenseBlock(node, activation, deepset=True)
+        self.hidden_layers = [DenseBlock(node, activation, n_l2, deepset=True)
                               for node, activation in zip(nodes, activations)]
 
         # mean and std for standardization
@@ -189,9 +191,9 @@ class DeepSet(tf.keras.Model):
 
 class FeedForwardNetwork(tf.keras.Model):
 
-    def __init__(self, nodes, activations, n_classes, mean, std, combined=False):
+    def __init__(self, nodes, activations, n_l2, n_classes, mean, std, combined=False):
         super(FeedForwardNetwork, self).__init__()
-        self.hidden_layers = [DenseBlock(node, activation, deepset=False)
+        self.hidden_layers = [DenseBlock(node, activation, n_l2, deepset=False)
                               for node, activation in zip(nodes, activations)]
         self.output_layer = tf.keras.layers.Dense(n_classes, activation='softmax')
 

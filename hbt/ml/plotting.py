@@ -19,7 +19,6 @@ shap = maybe_import("shap")
 # used later in shap functions
 def correlation_matrix(topDS, inp_full, topDS_labels, event_labels, file_name, output):
     # calculate the correlation coefficients
-    from IPython import embed; embed()
     corrcoef = np.zeros((10, len(event_labels)))
     events_inp = inp_full[:, - len(event_labels):]
     for i, ds_col in enumerate(topDS):
@@ -27,14 +26,15 @@ def correlation_matrix(topDS, inp_full, topDS_labels, event_labels, file_name, o
             corr = np.corrcoef(inp_full[:, ds_col], events_inp[:, inp2_col])
             corr = np.round(corr, decimals=2)
             corrcoef[i, inp2_col] = corr[0, 1]
-    fig2 = plt.figure(figsize=(19, 17))
+    figsize = (len(event_labels) + 15, len(topDS) + 10)
+    fig2 = plt.figure(figsize=figsize)
     # plot the coefficients in a heatmap
     plt.style.use(mplhep.style.CMS)
     im = plt.imshow(corrcoef, vmin=-1, vmax=1)
-    plt.colorbar(im, fraction=0.046, pad=0.04)
+    im_ratio = corrcoef.shape[0] / corrcoef.shape[1]
+    plt.colorbar(im, fraction=im_ratio * 0.047)
     plt.xticks(np.arange(len(event_labels)), labels=event_labels, rotation=45)
     plt.yticks(np.arange(len(topDS_labels)), labels=topDS_labels)
-    plt.xlabel('Correlation Coefficients')
 
     # set the grid
     plt.xticks(np.arange(corrcoef.shape[1] + 1) - .5, minor=True)
@@ -57,7 +57,7 @@ def correlation_matrix(topDS, inp_full, topDS_labels, event_labels, file_name, o
     plt.scatter(ev, ds, color='blue', s=1)
     plt.xlabel(f"{event_labels[leading[1]]} (X)")
     plt.ylabel(f"{topDS_labels[leading[0]]} (Y)")
-    title_str = "Scatter Correlation" + r"$\rho_{X,Y}=$" + f"{corrcoef.max()}"
+    title_str = "Scatter Correlation " + r"$\rho_{X,Y}=$" + f"{corrcoef.max()}"
     plt.title(title_str, loc='left')
     mplhep.cms.label(llabel="Work in progress", data=False, loc=2)
     output.child(f"Scatter_Correlation{file_name}.pdf", type="f").dump(fig3, formatter="mpl")
@@ -117,7 +117,6 @@ def plot_confusion(
     plt.style.use(mplhep.style.CMS)
 
     from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-
     # Create confusion matrix and normalizes it over predicted (columns)
     confusion = confusion_matrix(
         y_true=np.argmax(inputs['target'], axis=1),
@@ -127,9 +126,7 @@ def plot_confusion(
     )
 
     labels_ext = [proc_inst.label for proc_inst in process_insts] if process_insts else None
-    labels = [label.split("HH_{")[1].split("}")[0] for label in labels_ext]
-    labels = ["$HH_{" + label for label in labels]
-    labels = [label + "}$" for label in labels]
+    labels = ["$HH_{" + label.split("HH_{")[1].split("}")[0] + "}$" if "HH" in label else label for label in labels_ext]
 
     # Create a plot of the confusion matrix
     fig, ax = plt.subplots(figsize=(15, 10))
@@ -367,7 +364,7 @@ def plot_shap_deep_sets(
 ) -> None:
 
     # names of the features
-    event_features = feature_names[1]
+    event_labels = list(map(latex_dict.get, feature_names[1]))
     # make sure class names are sorted correctly in correspondence to their target index
     classes = sorted(target_dict.items(), key=lambda x: x[1])
     class_sorted = np.array(classes)[:, 0]
@@ -382,11 +379,9 @@ def plot_shap_deep_sets(
     deepSets_op = deepSets_op_full[:subset_idx]
     deepSets_op2 = deepSets_op_full[-subset_idx:]
 
-    inp_full = np.concatenate((deepSets_op_full, train['inputs2']), axis=1)
-
     # Get the feature names
     deepSets_features = [f'DeepSets{i+1}' for i in range(deepSets_op.shape[1])]
-    features_list = deepSets_features + event_features
+    features_list = deepSets_features + event_labels
 
     # calculate shap values
     concat_inp = np.concatenate((deepSets_op, train['inputs2'][:subset_idx]), axis=1)
@@ -414,11 +409,35 @@ def plot_shap_deep_sets(
 
     # get only the indices of the leading DS Nodes and the labels
     idx = idx[idx < len(deepSets_features)]
-    topDS = idx[:10]
-    topDS_labels = features_list[topDS]
+    topDS_idx = idx[:10]
+    topDS_labels = features_list[topDS_idx]
 
-    event_labels = list(map(latex_dict.get, event_features))
-    correlation_matrix(topDS, inp_full, topDS_labels, event_labels, "", output)
+    # get the first two jets of each event and arrange them in an array (N events, 2*N Jet Features)
+    jets_12 = train['inputs'][:, :2, :].numpy()
+    jets_12 = jets_12.reshape((jets_12.shape[0], -1))
+    jet_labels = np.array(list(map(latex_dict.get, feature_names[0]))).astype(str)
+    jet_labels_12 = np.concatenate((np.char.add(jet_labels, " 1"), np.char.add(jet_labels, " 2")))
+
+    # inputs for the calculations of the correlation matrix
+    inp_events = np.concatenate((deepSets_op_full, train['inputs2']), axis=1)
+    inp_jets = np.concatenate((deepSets_op_full, jets_12), axis=1)
+    correlation_matrix(topDS_idx, inp_events, topDS_labels, event_labels, "", output)
+    correlation_matrix(topDS_idx, inp_jets, topDS_labels, jet_labels_12, "_to_jets_top", output)
+
+    # create correlation matrices for different jet multiplicities
+    # get the index of the column that contains the number of jets
+    idx_njets = np.argwhere(np.char.find(feature_names[1], 'njets') != -1)[0][0]
+    n_jets = train['inputs2'][:, idx_njets]
+    for jet_num in [2, 3, 4, 5]:
+        # generate mask for the specified jet multiplicity
+        mask = np.isin(n_jets, jet_num)
+        jets = train['inputs'][mask][:, :jet_num, :].numpy()
+        jets = jets.reshape((jets.shape[0], -1))
+        inp_jets = np.concatenate((deepSets_op_full[mask], jets), axis=1)
+        jet_features = np.tile(jet_labels, jet_num)
+        nums = np.repeat(np.arange(1, jet_num + 1), len(feature_names[0])).astype(str)
+        labels = np.char.add(jet_features, nums)
+        correlation_matrix(topDS_idx, inp_jets, topDS_labels, labels, f"_jets_{jet_num}", output)
 
 
 def plot_shap_deep_sets_pp(
@@ -428,8 +447,11 @@ def plot_shap_deep_sets_pp(
         process_insts: tuple[od.Process],
         target_dict,
         feature_names,
+        features_pairs,
         latex_dict,
 ) -> None:
+
+    import math
     # shap values for the DeepSets architecture taking jets and pairs and input (working parallel)
     # names of the features
     event_features = feature_names[1]
@@ -442,7 +464,7 @@ def plot_shap_deep_sets_pp(
         class_list[idx[0][0]] = proc.label
 
     # get the Deep Sets model Output that will be used as Input for the subsequent FF Network
-    subset_idx = 15
+    subset_idx = 150
     # Output of DeepSets for Jets
     deepSets_jets_op_full = model.deepset_jets_network.predict(train['inputs'])
     deepSets_jets_op = deepSets_jets_op_full[:subset_idx]
@@ -451,8 +473,9 @@ def plot_shap_deep_sets_pp(
     deepSets_pairs_op_full = model.deepset_pairs_network.predict(train['pairs_inp'])
     deepSets_pairs_op = deepSets_pairs_op_full[:subset_idx]
     deepSets_pairs_op2 = deepSets_pairs_op_full[-subset_idx:]
+    deepSets_op_full = np.concatenate((deepSets_jets_op_full, deepSets_pairs_op_full), axis=1)
 
-    inp_full = np.concatenate((deepSets_jets_op_full, deepSets_pairs_op_full, train['inputs2']), axis=1)
+    inp_full = np.concatenate((deepSets_op_full, train['inputs2']), axis=1)
 
     deepSets_features_jets = [f'DeepSets Jets{i+1}' for i in range(deepSets_jets_op.shape[1])]
     deepSets_features_pairs = [f'DeepSets Pairs{i+1}' for i in range(deepSets_pairs_op.shape[1])]
@@ -468,12 +491,11 @@ def plot_shap_deep_sets_pp(
     # Plot Feature Ranking
     event_labels = list(map(latex_dict.get, event_features))
     features_list = deepSets_features + event_labels
-    from IPython import embed; embed()
     fig1 = plt.figure(figsize=(20, 15))
     shap.summary_plot(shap_values, plot_type="bar",
         feature_names=features_list, class_names=class_list, show=False, max_display=25)
     plt.title('Feature Importance Ranking')
-    output.child("DeepSetPP_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
+    output.child("DeepSetsPP_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
 
     # Begin preparation for the correlation matrix
     shap_values = np.array(shap_values)
@@ -487,23 +509,61 @@ def plot_shap_deep_sets_pp(
 
     # get only the indices of the leading DS Nodes and the labels
     idx = idx[idx < len(deepSets_features)]
-    topDS = idx[:10]
-    topDS_labels = features_list[topDS]
+    topDS_idx = idx[:10]
+    topDS_labels = features_list[topDS_idx]
 
     # get only the indices of the leading DS jets Nodes and the labels
     idx_jets = idx[idx < len(deepSets_features_jets)]
-    topDS_jets = idx_jets[:10]
-    topDS_jets_labels = features_list[topDS_jets]
+    topDS_idx_jets = idx_jets[:10]
+    topDS_jets_labels = features_list[topDS_idx_jets]
 
     # get only the indices of the leading DS pairs Nodes and the labels
     idx_pairs = idx[((idx < len(deepSets_features)) & (idx >= len(deepSets_features_jets)))]
-    topDS_pairs = idx_pairs[:10]
-    topDS_pairs_labels = features_list[topDS_pairs]
-    from IPython import embed; embed()
+    topDS_idx_pairs = idx_pairs[:10]
+    topDS_pairs_labels = features_list[topDS_idx_pairs]
 
-    correlation_matrix(topDS, inp_full, topDS_labels, event_labels, "Event_Features", output)
-    correlation_matrix(topDS_jets, inp_full, topDS_jets_labels, event_labels, "Event_Features_DSJ", output)
-    correlation_matrix(topDS_pairs, inp_full, topDS_pairs_labels, event_labels, "Event_Features_DSP", output)
+    correlation_matrix(topDS_idx, inp_full, topDS_labels, event_labels, "_Event_Features", output)
+    correlation_matrix(topDS_idx_jets, inp_full, topDS_jets_labels, event_labels, "_Event_Features_DSJ", output)
+    correlation_matrix(topDS_idx_pairs, inp_full, topDS_pairs_labels, event_labels, "_Event_Features_DSP", output)
+
+    # get the first two jets of each event and arrange them in an array (N events, 2*N Jet Features)
+    jets_12 = train['inputs'][:, :2, :].numpy()
+    jets_12 = jets_12.reshape((jets_12.shape[0], -1))
+    jet_labels = np.array(list(map(latex_dict.get, feature_names[0]))).astype(str)
+    jet_labels_12 = np.concatenate((np.char.add(jet_labels, " 1"), np.char.add(jet_labels, " 2")))
+    inp_jets = np.concatenate((deepSets_op_full, jets_12), axis=1)
+    correlation_matrix(topDS_idx_jets, inp_jets, topDS_jets_labels, jet_labels_12, "_to_jets_DSJ", output)
+
+    # get the first pair each event
+    pair_1 = train['pairs_inp'][:, 0, :].numpy()
+    pair_1 = pair_1.reshape((pair_1.shape[0], -1))
+    pair_1_labels = np.char.add(features_pairs, " 1")
+    inp_pair = np.concatenate((deepSets_op_full, pair_1), axis=1)
+    correlation_matrix(topDS_idx_pairs, inp_pair, topDS_pairs_labels, pair_1_labels, "_to_pair_DSP", output)
+
+    # create correlation matrices for different jet multiplicities
+    # get the index of the column that contains the number of jets
+    idx_njets = np.argwhere(np.char.find(feature_names[1], 'njets') != -1)[0][0]
+    n_jets = train['inputs2'][:, idx_njets]
+    for jet_num in [2, 3, 4, 5]:
+        # generate mask for the specified jet multiplicity
+        pair_num = math.factorial(jet_num) / (2 * math.factorial(jet_num - 2))
+        pair_num = int(pair_num)
+        mask = np.isin(n_jets, jet_num)
+        jets = train['inputs'][mask][:, :jet_num, :].numpy()
+        jets = jets.reshape((jets.shape[0], -1))
+        pairs = train['pairs_inp'][mask][:, :pair_num, :].numpy()
+        pairs = pairs.reshape((pairs.shape[0], -1))
+        inp_jets = np.concatenate((deepSets_op_full[mask], jets), axis=1)
+        inp_pairs = np.concatenate((deepSets_op_full[mask], pairs), axis=1)
+        jet_features = np.tile(jet_labels, jet_num)
+        pair_features = np.tile(features_pairs, pair_num)
+        nums_jets = np.repeat(np.arange(1, jet_num + 1), len(feature_names[0])).astype(str)
+        nums_pairs = np.repeat(np.arange(1, pair_num + 1), len(features_pairs)).astype(str)
+        labels_jets = np.char.add(jet_features, nums_jets)
+        labels_pairs = np.char.add(pair_features, nums_pairs)
+        correlation_matrix(topDS_idx_jets, inp_jets, topDS_jets_labels, labels_jets, f"_jets_{jet_num}", output)
+        correlation_matrix(topDS_idx_pairs, inp_pairs, topDS_pairs_labels, labels_pairs, f"_pairs_{pair_num}", output)
 
 
 def plot_shap_deep_sets_ps(
@@ -513,6 +573,7 @@ def plot_shap_deep_sets_ps(
         process_insts: tuple[od.Process],
         target_dict,
         feature_names,
+        features_pairs,
         latex_dict,
 ) -> None:
     # shap values for the DeepSets architecture taking jets and pairs and input (working parallel)
@@ -530,16 +591,15 @@ def plot_shap_deep_sets_ps(
     subset_idx = 150
     # Output of DeepSetsPS
     deepSets_op_full = model.deepset_network.predict([train['inputs'], train['pairs_inp']])
-    deepSets_op = deepSets_op_full[:subset_idx]
-    deepSets_op2 = deepSets_op_full[-subset_idx:]
 
-    inp_full = np.concatenate((deepSets_op_full, train['inputs2']), axis=1)
-
-    deepSets_features_jets = [f'DeepSets Jets{i+1}' for i in range(deepSets_op.shape[1] / 2)]
-    deepSets_features_pairs = [f'DeepSets Pairs{i+1}' for i in range(deepSets_op.shape[1] / 2)]
+    deepSets_features_jets = [f'DeepSets Jets{i+1}' for i in range(deepSets_op_full[0].shape[1])]
+    deepSets_features_pairs = [f'DeepSets Pairs{i+1}' for i in range(deepSets_op_full[1].shape[1])]
     deepSets_features = deepSets_features_jets + deepSets_features_pairs
 
     # calculate shap values
+    deepSets_op_full = np.concatenate(deepSets_op_full, axis=1)
+    deepSets_op = deepSets_op_full[:subset_idx]
+    deepSets_op2 = deepSets_op_full[-subset_idx:]
     concat_inp = np.concatenate((deepSets_op, train['inputs2'][:subset_idx]), axis=1)
     concat_inp2 = np.concatenate((deepSets_op2, train['inputs2'][-subset_idx:]), axis=1)
     ff_model = model.feed_forward_network
@@ -567,22 +627,36 @@ def plot_shap_deep_sets_ps(
 
     # get only the indices of the leading DS Nodes and the labels
     idx = idx[idx < len(deepSets_features)]
-    topDS = idx[:10]
-    topDS_labels = features_list[topDS]
+    topDS_idx = idx[:10]
+    topDS_labels = features_list[topDS_idx]
 
     # get only the indices of the leading DS jets Nodes and the labels
     idx_jets = idx[idx < len(deepSets_features_jets)]
-    topDS_jets = idx_jets[:10]
-    topDS_jets_labels = features_list[topDS_jets]
+    topDS_idx_jets = idx_jets[:10]
+    topDS_jets_labels = features_list[topDS_idx_jets]
 
     # get only the indices of the leading DS pairs Nodes and the labels
     idx_pairs = idx[((idx < len(deepSets_features)) & (idx >= len(deepSets_features_jets)))]
-    topDS_pairs = idx_pairs[:10]
-    topDS_pairs_labels = features_list[topDS_pairs]
+    topDS_idx_pairs = idx_pairs[:10]
+    topDS_pairs_labels = features_list[topDS_idx_pairs]
 
-    correlation_matrix(topDS, inp_full, topDS_labels, event_labels, "Event_Features", output)
-    correlation_matrix(topDS_jets, inp_full, topDS_jets_labels, event_labels, "Event_Features_DSJ", output)
-    correlation_matrix(topDS_pairs, inp_full, topDS_pairs_labels, event_labels, "Event_Features_DSP", output)
+    inp_events = np.concatenate((deepSets_op_full, train['inputs2']), axis=1)
+    correlation_matrix(topDS_idx, inp_events, topDS_labels, event_labels, "_Event_Features", output)
+
+    # get the first two jets of each event and arrange them in an array (N events, 2*N Jet Features)
+    jets_12 = train['inputs'][:, :2, :].numpy()
+    jets_12 = jets_12.reshape((jets_12.shape[0], -1))
+    jet_labels = np.array(list(map(latex_dict.get, feature_names[0]))).astype(str)
+    jet_labels_12 = np.concatenate((np.char.add(jet_labels, " 1"), np.char.add(jet_labels, " 2")))
+    inp_jets = np.concatenate((deepSets_op_full, jets_12), axis=1)
+    correlation_matrix(topDS_idx_jets, inp_jets, topDS_jets_labels, jet_labels_12, "_to_jets_DSJ", output)
+
+    # get the first pair each event
+    pair_1 = train['pairs_inp'][:, 0, :].numpy()
+    pair_1 = pair_1.reshape((pair_1.shape[0], -1))
+    pair_1_labels = np.char.add(features_pairs, " 1")
+    inp_pair = np.concatenate((deepSets_op_full, pair_1), axis=1)
+    correlation_matrix(topDS_idx_pairs, inp_pair, topDS_pairs_labels, pair_1_labels, "_to_pair_DSP", output)
 
 
 def plot_shap_baseline(
@@ -676,6 +750,44 @@ def plot_feature_ranking_deep_sets(
     output.child("Feature_Ranking_DeepSets.pdf", type="f").dump(fig1, formatter="mpl")
 
 
+def pca(arr):
+    from sklearn.decomposition import PCA
+    pca = PCA(n_components=arr.shape[1], svd_solver='full')
+    pca.fit(arr)
+    pca_values = 100 * pca.explained_variance_ratio_
+    return np.array2string(pca_values), np.sum((pca_values > 1))
+
+
+def PCA(
+        model: tf.keras.models.Model,
+        train: DotDict,
+        model_type,
+        output: law.FileSystemDirectoryTarget,
+) -> None:
+
+    txt_input = 'PCA Values Jets: \n'
+    if model_type == "DeepSets":
+        deepSets_op = model.deepset_network.predict(train['inputs'])
+        pca_vals, num = pca(deepSets_op)
+        txt_input += pca_vals
+        txt_input += f'\nNumber of Values above 1%: {num}'
+    if model_type == "DeepSetsPP" or model_type == "DeepSetsPS":
+        if model_type == "DeepSetsPP":
+            deepSets_op_jets = model.deepset_jets_network.predict(train['inputs'])
+            deepSets_op_pairs = model.deepset_pairs_network.predict(train['pairs_inp'])
+        else:
+            deepSets_op_jets, deepSets_op_pairs = model.deepset_network.predict([train['inputs'], train['pairs_inp']])
+        pca_vals_jets, num_jets = pca(deepSets_op_jets)
+        pca_vals_pairs, num_pairs = pca(deepSets_op_pairs)
+        txt_input += pca_vals_jets
+        txt_input += f'\nNumber of Values above 1% (Jets): {num_jets}\n'
+        txt_input += 'PCA Values Pairs: \n'
+        txt_input += pca_vals_pairs
+        txt_input += f'\nNumber of Values above 1% (Pairs): {num_pairs}'
+
+    output.child(f'PCA_{model_type}.txt', type="d").dump(txt_input, formatter="text")
+
+
 def write_info_file(
         output: law.FileSystemDirectoryTarget,
         agg_funcs,
@@ -696,6 +808,7 @@ def write_info_file(
         jet_collection,
         phi_projection,
         sequential_mode,
+        l2,
 ) -> None:
 
     # write info on model for the txt file
@@ -707,6 +820,7 @@ def write_info_file(
     txt_input += f'Jet Collection used: {jet_collection}\n'
     txt_input += f'Initial Learning Rate: {learningrate}, Input Handling: Standardization Z-Score \n'
     txt_input += f'Required number of Jets per Event: {min_jet_num + 1}\n'
+    txt_input += f'L2: {l2}'
     txt_input += f'Weights used in Loss: {loss_weights.items()}\n'
     if model_type == 'baseline':
         txt_input += f'Input Features Baseline: {feature_names[0]} + {feature_names[1]}\n'

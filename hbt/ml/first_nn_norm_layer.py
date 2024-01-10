@@ -22,7 +22,7 @@ from columnflow.columnar_util import EMPTY_FLOAT
 from hbt.ml.plotting import (
     plot_loss, plot_accuracy, plot_confusion, plot_roc_ovr, plot_output_nodes, plot_significance,
     write_info_file, plot_shap_baseline, plot_feature_ranking_deep_sets, plot_shap_deep_sets,
-    check_distribution, plot_shap_deep_sets_pp, plot_shap_deep_sets_ps,
+    check_distribution, plot_shap_deep_sets_pp, plot_shap_deep_sets_ps, PCA,
 )
 
 np = maybe_import("numpy")
@@ -70,9 +70,9 @@ def create_pairs(jets, pairs_dict, pais_input, masking_val, max_jets):
     stacking = np.array([e, mass, pt, y, phi, delta_eta, delta_phi, sum_btags[:, :, 0],
                          sum_btags[:, :, 1], sum_btags[:, :, 2], sum_btags[:, :, 3],
                          sum_btags[:, :, 4], sum_btags[:, :, 5], sum_btags[:, :, 6]])
-    features_pairs = np.array(["e", "mass", "pt", "y,", "phi", "delta_eta", "delta_phi", "btag",
-                               "btagCvL", "btagCvB", "bFlavtag", "bFlavtagCvL", "bFlavtagCvB",
-                               "btagQG"])
+    features_pairs = np.array(["Energy", "Mass", r"$p_{T}$", "y", r"$\phi$", r"$\Delta \eta$",
+                              r"$\Delta \phi$", "Deep B", "Deep CvL", "Deep CvB", "Deep Flav B",
+                               "Deep Flav CvL", "Deep Flav CvB", "Deep Flav QG"])
     mask_tiled = np.array([mask] * len(stacking))
     stacking_masked = np.where(mask_tiled, stacking, masking_val)
     pairs_inp = np.stack(stacking_masked, axis=-1)
@@ -251,7 +251,6 @@ class SimpleDNN(MLModel):
             nodes_deepSets: list | None = None,
             nodes_ff: list | None = None,
             aggregations: list | None = None,
-            L2: bool | None = None,
             norm_features: list | None = None,
             empty_overwrite: str | None = None,
             quantity_weighting: bool | None = None,
@@ -284,7 +283,6 @@ class SimpleDNN(MLModel):
         self.activation_func_ff = activation_func_ff or self.activation_func_ff
         self.nodes_deepSets = nodes_deepSets or self.nodes_deepSets
         self.nodes_ff = nodes_ff or self.nodes_ff
-        self.L2 = L2 or self.L2
         self.norm_features = norm_features or self.norm_features
         self.quantity_weighting = quantity_weighting or self.quantity_weighting
         self.jet_num_cut = jet_num_cut or self.jet_num_cut
@@ -413,7 +411,6 @@ class SimpleDNN(MLModel):
         task,
         input,
     ) -> dict[str, np.array]:
-
         # set seed for shuffeling for reproducebility
         np.random.seed(1337)
         tf.random.set_seed(1337)
@@ -424,7 +421,6 @@ class SimpleDNN(MLModel):
             self.pairs_dict_tf[k] = tf.convert_to_tensor(v)
         '''Kepp the -1 as a dummy value for the padded pairs, based on the -1 the mask in the
         CreatePairs layer is computed to mask the pairs.'''
-
         if self.quantity_weighting:
             # properly define the ml_process_weights through the number of events per dataset
             for dataset0, files0 in input["events"][self.config_inst.name].items():
@@ -435,9 +431,10 @@ class SimpleDNN(MLModel):
                     raise Exception("only 1 process inst is expected for each dataset")
 
                 N_events = sum([len(ak.from_parquet(inp["mlevents"].fn)) for inp in files0])
-                proc_name_of_dataset = dataset0.split("_madgraph")[0]
-                self.ml_process_weights[proc_name_of_dataset] = N_events
-
+                process_name = "_".join(dataset0.split("_")[:-1])
+                process_name = "tt" if "tt" in process_name else process_name
+                process_name = "dy" if "dy" in process_name else process_name
+                self.ml_process_weights[process_name] += N_events
             max_events_of_proc = np.max(list(self.ml_process_weights.values()))
             for key_proc, value_proc in self.ml_process_weights.items():
                 self.ml_process_weights[key_proc] = max_events_of_proc / value_proc
@@ -461,7 +458,6 @@ class SimpleDNN(MLModel):
         #
         # determine process of each dataset and count number of events & sum of eventweights for this process
         #
-
         for dataset, files in input["events"][self.config_inst.name].items():
             t0 = time.time()
 
@@ -539,7 +535,6 @@ class SimpleDNN(MLModel):
                 sum_nnweights += sum(weights)
                 sum_nnweights_processes.setdefault(proc_name, 0)
                 sum_nnweights_processes[proc_name] += sum(weights)
-
                 # remove columns not used in training
                 projection_phi = events[self.projection_phi[0]]
                 events_pairs = events[self.pair_vectors]
@@ -615,7 +610,6 @@ class SimpleDNN(MLModel):
 
         validation_fraction = 0.25
         N_validation_events = int(validation_fraction * len(DNN_inputs["weights"]))
-
         train, validation = {}, {}
         for k in DNN_inputs.keys():
             DNN_inputs[k] = DNN_inputs[k][shuffle_indices]
@@ -650,11 +644,8 @@ class SimpleDNN(MLModel):
 
             try:
                 outp = func(*args, **kwargs)
-                # logger.info(f"Function '{func.__name__}' done; took {(time.perf_counter() - t0):.2f} seconds")
             except Exception as e:
-                # logger.warning(f"Function '{func.__name__}' failed due to {type(e)}: {e}")
                 print('Failed')
-                #from IPython import embed; embed()
                 outp = None
 
             return outp
@@ -667,20 +658,22 @@ class SimpleDNN(MLModel):
         elif self.model_type == "baseline_pairs":
             train["prediction"] = call_func_safe(model, train['inputs_baseline_pairs'])
             validation["prediction"] = call_func_safe(model, validation['inputs_baseline_pairs'])
-            call_func_safe(plot_shap_baseline, model, train, output, self.process_insts, self.target_dict, feature_names, self.features_pairs, self.baseline_jets, self.baseline_pairs, self.model_type)
+            # call_func_safe(plot_shap_baseline, model, train, output, self.process_insts, self.target_dict, feature_names, self.features_pairs, self.baseline_jets, self.baseline_pairs, self.model_type)
         elif self.model_type == "DeepSets":
             train["prediction"] = call_func_safe(model, [train['inputs'], train['inputs2']])
             validation["prediction"] = call_func_safe(model, [validation['inputs'], validation['inputs2']])
-            call_func_safe(plot_shap_deep_sets, model, train, output, self.process_insts, self.target_dict, feature_names, self.latex_dict)
-            # call_func_safe(plot_feature_ranking_deep_sets, masking_model, train, output, self.process_insts, self.target_dict, feature_names, self.train_sorting)
+            # call_func_safe(plot_shap_deep_sets, model, train, output, self.process_insts, self.target_dict, feature_names, self.latex_dict)
+            call_func_safe(PCA, model, train, self.model_type, output)
         elif self.model_type == "DeepSetsPS":
             train["prediction"] = call_func_safe(model, [[train['inputs'], train['pairs_inp']], train['inputs2']])
             validation["prediction"] = call_func_safe(model, [[validation['inputs'], validation['pairs_inp']], validation['inputs2']])
-            call_func_safe(plot_shap_deep_sets_ps, model, train, output, self.process_insts, self.target_dict, feature_names, self.latex_dict)
+            # call_func_safe(plot_shap_deep_sets_ps, model, train, output, self.process_insts, self.target_dict, feature_names, self.features_pairs, self.latex_dict)
+            call_func_safe(PCA, model, train, self.model_type, output)
         elif self.model_type == "DeepSetsPP":
             train["prediction"] = call_func_safe(model, [train["inputs"], train["pairs_inp"], train["inputs2"]])
             validation["prediction"] = call_func_safe(model, [validation["inputs"], validation["pairs_inp"], validation["inputs2"]])
-            call_func_safe(plot_shap_deep_sets_pp, model, train, output, self.process_insts, self.target_dict, feature_names, self.latex_dict)
+            # call_func_safe(plot_shap_deep_sets_pp, model, train, output, self.process_insts, self.target_dict, feature_names, self.features_pairs, self.latex_dict)
+            call_func_safe(PCA, model, train, self.model_type, output)
 
         # make some plots of the history
         call_func_safe(plot_accuracy, model.history.history, output)
@@ -739,33 +732,30 @@ class SimpleDNN(MLModel):
         # model preparations
         #
 
-        # configureations for Deep Sets and FF Network
-        # min_deepSets_nodes = train[f'inputs_{self.train_sorting}'].shape[1]
-        # deepSets_nodes = self.nodes_deepSets
-        # deepSets_nodes[-1] = min_deepSets_nodes + 2 * len(self.input_features[0])
+        # configureations for Deep Sets and FF Networt
         dict_vals = tf.stack(list(self.pairs_dict_tf.values()))
         deepset_config_jets = {'nodes': self.nodes_deepSets, 'activations': self.activation_func_deepSets,
-            'aggregations': self.aggregations, 'masking_val': self.masking_val,
+            'n_l2': self.l2, 'aggregations': self.aggregations, 'masking_val': self.masking_val,
             'mean': train_norm['mean_jets'], 'std': train_norm['std_jets']}
         deepset_config_pairs = {'nodes': self.nodes_deepSets, 'activations': self.activation_func_deepSets,
-            'aggregations': self.aggregations, 'masking_val': self.masking_val,
+            'n_l2': self.l2, 'aggregations': self.aggregations, 'masking_val': self.masking_val,
             'mean': train_norm['mean_pairs'], 'std': train_norm['std_pairs']}
         deepset_config_sequential = {'nodes': self.nodes_deepSets, 'activations': self.activation_func_deepSets,
-            'aggregations': self.aggregations, 'masking_val': self.masking_val,
+            'n_l2': self.l2, 'aggregations': self.aggregations, 'masking_val': self.masking_val,
             'mean_jets': train_norm['mean_jets'], 'std_jets': train_norm['std_jets'],
             'mean_pairs': train_norm['mean_pairs'], 'std_pairs': train_norm['std_pairs'],
             'dict_vals': dict_vals, 'sequential_mode': self.sequential_mode}
         # FF config for the comb networks, 0 and 1 are padded in the NN to match the concat of DS OP and Inputs2
         feedforward_DS_config = {'nodes': self.nodes_ff, 'activations': self.activation_func_ff,
-            'n_classes': self.n_output_nodes, 'mean': train_norm['mean_inputs2'],
+            'n_l2': self.l2, 'n_classes': self.n_output_nodes, 'mean': train_norm['mean_inputs2'],
             'std': train_norm['std_inputs2'], 'combined': True}
         # FF config for the baseline FF
         feedforward_config = {'nodes': self.nodes_ff, 'activations': self.activation_func_ff,
-            'n_classes': self.n_output_nodes, 'mean': train_norm['mean_baseline'],
+            'n_l2': self.l2, 'n_classes': self.n_output_nodes, 'mean': train_norm['mean_baseline'],
             'std': train_norm['std_baseline']}
         # FF config for the DS PP Network
         feedforward_pairs_config = {'nodes': self.nodes_ff, 'activations': self.activation_func_ff,
-            'n_classes': self.n_output_nodes, 'mean': train_norm['mean_baseline_pairs'],
+            'n_l2': self.l2, 'n_classes': self.n_output_nodes, 'mean': train_norm['mean_baseline_pairs'],
             'std': train_norm['std_baseline_pairs']}
 
         if self.model_type == "baseline":
@@ -832,8 +822,8 @@ class SimpleDNN(MLModel):
         # transform the the keys of self.ml_process_weights to their respective idx
         # so that the dict is understood by the model
         class_weights_dict = {}
-        for i, proc_key in enumerate(self.processes):
-            class_weights_dict[i] = self.ml_process_weights[proc_key]
+        for proc_name, target in self.target_dict.items():
+            class_weights_dict[target] = self.ml_process_weights[proc_name]
 
         fit_kwargs = {
             "epochs": self.epochs,
@@ -874,7 +864,7 @@ class SimpleDNN(MLModel):
             self.n_output_nodes, self.batch_norm_deepSets, self.batch_norm_ff, self.input_features,
             self.process_insts, self.activation_func_deepSets, self.activation_func_ff, self.learningrate,
             self.ml_process_weights, self.jet_num_cut, self.ml_process_weights,
-            self.model_type, self.jet_collection, self.projection_phi, self.sequential_mode)
+            self.model_type, self.jet_collection, self.projection_phi, self.sequential_mode, self.l2)
 
     def evaluate(
         self,
@@ -888,7 +878,9 @@ class SimpleDNN(MLModel):
         # output = task.target(f"mlmodel_f{task.branch}of{self.folds}_{self.model_name}", dir=True)
         # output_all_folds = task.target(f"mlmodel_all_folds_{self.model_name}", dir=True)
         logger.info(f"Evaluation of dataset {task.dataset}")
-        proc_name = task.dataset.split("_madgraph")[0]
+        proc_name = "_".join(task.dataset.split("_")[:-1])
+        proc_name = "tt" if "tt" in proc_name else proc_name
+        proc_name = "dy" if "dy" in proc_name else proc_name
         models, history = zip(*models)
         model0 = models[0]
         if self.model_type == "DeepSetsPS":
@@ -903,12 +895,6 @@ class SimpleDNN(MLModel):
         projection_phi = events[self.projection_phi[0]]
 
         # prepare the input features
-        # this target dict is generated in the same way as the ml truth labels in prepare inputs
-        # therefore the truth labels should match
-        target_dict = {}
-        for i, proc in enumerate(self.processes):
-            target_dict[f'{proc}_madgraph'] = i
-
         events1 = reshape_raw_inputs1(events1, self.n_features, self.input_features[0], projection_phi)
         events2 = reshape_raw_inputs2(events2)
         events_pairs = reshape_raw_inputs1(events_pairs, len(self.pair_vectors), self.pair_vectors, projection_phi)
@@ -924,8 +910,9 @@ class SimpleDNN(MLModel):
             events1 = np.concatenate((events1, extra_columns), axis=1)
 
         # create target and add to test dict
-        target = np.zeros((events1.shape[0], len(target_dict.keys())))
-        target[:, target_dict[task.dataset]] = 1
+        target_idx = self.processes.index(proc_name)
+        target = np.zeros((events1.shape[0], len(self.processes)))
+        target[:, target_idx] = 1
 
         test = {'inputs': events1,
                 'inputs2': events2,
@@ -969,7 +956,7 @@ class SimpleDNN(MLModel):
         outputs = ak.where(ak.ones_like(predictions[0]), -1, -1)
         op = ak.where(ak.ones_like(predictions[0]), -1, -1)
         weights = np.full(len(outputs), 0)
-        target_val = np.full(len(outputs), target_dict[task.dataset])
+        target_val = np.full(len(outputs), target_idx)
         events = set_ak_column(events, f"{self.cls_name}.ml_truth_label_{proc_name}__{self.model_name}", target_val)
         for i in range(self.folds):
             logger.info(f"Evaluation fold {i}")
@@ -1009,7 +996,7 @@ class SimpleDNN(MLModel):
         events = set_ak_column(events, f"{self.cls_name}.predictions_{proc_name}__{self.model_name}", test["prediction"])
         pred_target = np.concatenate((test["prediction"], target), axis=1)
         events = set_ak_column(events, f"{self.cls_name}.pred_target_{proc_name}__{self.model_name}", pred_target)
-        events = set_ak_column(events, f"{self.cls_name}.target_label_{proc_name}__{self.model_name}", np.full(target.shape[0], target_dict[f'{task.dataset}']))
+        events = set_ak_column(events, f"{self.cls_name}.target_label_{proc_name}__{self.model_name}", np.full(target.shape[0], target_idx))
         events = set_ak_column(events, f"{self.cls_name}.events_weights_{proc_name}__{self.model_name}", weights)
 
         return events
