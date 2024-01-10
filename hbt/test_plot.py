@@ -19,14 +19,22 @@ import awkward as ak
 # )
 
 # t.law_run()
-processes = ["graviton_hh_vbf_bbtautau_m400",
-            "graviton_hh_ggf_bbtautau_m400",
-            "hh_ggf_bbtautau"]
+processes_dict = {"graviton_hh_vbf_bbtautau_m400": "graviton_hh_ggf_bbtautau_m400_madgraph",
+            "graviton_hh_ggf_bbtautau_m400": "graviton_hh_vbf_bbtautau_m400_madgraph",
+            "tt_sl": "tt_sl_powheg",
+            "tt_dl": "tt_dl_powheg",
+            "dy_lep_pt50To100": "dy_lep_pt50To100_amcatnlo",
+            "dy_lep_pt100To250": "dy_lep_pt100To250_amcatnlo",
+            "dy_lep_pt250To400": "dy_lep_pt250To400_amcatnlo",
+            "dy_lep_pt400To650": "dy_lep_pt400To650_amcatnlo",
+            "dy_lep_pt650": "dy_lep_pt650_amcatnlo"}
 
-label_dict = {"graviton_hh_ggf_bbtautau_m400": 'Graviton $\\rightarrow HH_{ggf,m400}$ $\\rightarrow bb\\tau\\tau$',
-              "graviton_hh_vbf_bbtautau_m400": 'Graviton $\\rightarrow HH_{vbf,m400}$ $\\rightarrow bb\\tau\\tau$',
-              "hh_ggf_bbtautau": '$HH_{ggf} \\rightarrow bb\\tau\\tau$',
-    }
+processes = ["graviton_hh_vbf_bbtautau_m400", "graviton_hh_ggf_bbtautau_m400", "tt", "dy"]
+
+label_dict = {"graviton_hh_vbf_bbtautau_m400": 'Graviton $\\rightarrow HH_{vbf,m400}$ $\\rightarrow bb\\tau\\tau$',
+              "graviton_hh_ggf_bbtautau_m400": 'Graviton $\\rightarrow HH_{ggf,m400}$ $\\rightarrow bb\\tau\\tau$',
+              "tt": '$t\\bar{t}$ + Jets',
+              "dy": 'DY'}
 
 collection_dict = {}
 target_dict = {}
@@ -36,11 +44,11 @@ DeepSetsInpEta = {}
 fold_pred = {}
 
 # get the target and predictions from MLEvaluate
-for num, proc in enumerate(processes):
+for num, proc in enumerate(processes_dict.keys()):
     t = MLEvaluation(
-        version="PairsCustomVBFMaskJets2",
+        version="PairsML",
         ml_model="test",
-        dataset=f"{proc}_madgraph",
+        dataset=processes_dict[proc],
         calibrators=("skip_jecunc",),
         # print_status=(3,),
     )
@@ -56,6 +64,8 @@ for num, proc in enumerate(processes):
         if model_check != column.split("__")[-1]:
             raise Exception(f"Different models mixed up for process {proc}")
         if 'target_label' in column:
+            proc = "tt" if "tt" in proc else proc
+            proc = "dy" if "dy" in proc else proc
             target_dict[f'{proc}'] = scores[f'{column}'][0]
         if 'pred_target' in column:
             collection_dict[f'{column}'] = scores[f'{column}']
@@ -83,6 +93,7 @@ for num, proc in enumerate(processes):
 model_name = model_check
 path = files.collection[0]["mlcolumns"].sibling("dummy.json", type="f").path.split("dummy")[0]
 path = os.path.join(path, model_name)
+
 if not os.path.exists(path):
     os.makedirs(path)
 
@@ -100,6 +111,7 @@ for arr in fold_pred.values():
 label_sorting = np.argsort(list(target_dict.values()))
 sorted_label_keys = np.array(list(target_dict.keys()))[label_sorting]
 sorted_labels = [label_dict[label_key] for label_key in sorted_label_keys]
+
 # inputs = {
 #     'prediction': predictions,
 #     'target': targets,

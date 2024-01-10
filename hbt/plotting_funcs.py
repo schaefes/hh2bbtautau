@@ -20,7 +20,8 @@ def plot_confusion(inputs, labels, save_path, input_set):
     from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
     import os
 
-    labels = [f"$HH{label.split('HH')[-1]}" for label in labels]
+    # labels = [f"$HH{label.split('HH')[-1]}" for label in labels]
+    labels = ["$HH_{" + label.split("HH_{")[1].split("}")[0] + "}$" if "HH" in label else label for label in labels]
 
     # Create confusion matrix and normalizes it over predicted (columns)
     confusion = confusion_matrix(
@@ -29,11 +30,6 @@ def plot_confusion(inputs, labels, save_path, input_set):
         sample_weight=inputs['weights'],
         normalize="true",
     )
-
-    # labels_ext = [proc_inst.label for proc_inst in process_insts] if process_insts else None
-    # labels = [label.split("HH_{")[1].split("}")[0] for label in labels_ext]
-    # labels = ["$HH_{" + label for label in labels]
-    # labels = [label + "}$" for label in labels]
 
     # Create a plot of the confusion matrix
     fig, ax = plt.subplots(figsize=(15, 10))
@@ -105,8 +101,9 @@ def plot_roc_ovr(inputs, labels, save_path, input_set, std):
     auc_scores = []
     n_classes = len(inputs['target'][0])
 
-    labels = [f"$HH{label.split('HH')[-1]}" for label in labels]
-    labels = [f"{l.split('}')[0]}{'}'}$" for l in labels]
+    # labels = [f"$HH{label.split('HH')[-1]}" for label in labels]
+    # labels = [f"{l.split('}')[0]}{'}'}$" for l in labels]
+    labels = ["$HH_{" + label.split("HH_{")[1].split("}")[0] + "}$" if "HH" in label else label for label in labels]
 
     fig, ax = plt.subplots()
     for i in range(n_classes):
@@ -197,7 +194,8 @@ def plot_output_nodes(inputs, processes, labels, save_path, inputs_set):
     n_classes = len(labels)
 
     colors = ['red', 'blue', 'green', 'orange', 'cyan', 'purple', 'yellow', 'magenta']
-    labels = [f"$HH{label.split('HH')[-1]}" for label in labels]
+    # labels = [f"$HH{label.split('HH')[-1]}" for label in labels]
+    labels = ["$HH_{" + label.split("HH_{")[1].split("}")[0] + "}$" if "HH" in label else label for label in labels]
 
     for i, proc in enumerate(processes):
         fig, ax = plt.subplots()
@@ -253,7 +251,8 @@ def plot_significance(inputs, processes, labels, save_path, inputs_set):
 
     plt.style.use(mplhep.style.CMS)
 
-    labels = [f"$HH{label.split('HH')[-1]}" for label in labels]
+    # labels = [f"$HH{label.split('HH')[-1]}" for label in labels]
+    labels = ["$HH_{" + label.split("HH_{")[1].split("}")[0] + "}$" if "HH" in label else label for label in labels]
 
     store_dict = {}
 
@@ -332,13 +331,14 @@ def event_weights(targets, weights_all):
     return weights_all
 
 
-def plot_confusion_std(confusion, std, label, save_path):
+def plot_confusion_std(confusion, std, labels, save_path):
     import os
     import matplotlib.pyplot as plt
     import seaborn as s
 
-    labels = [f"$HH{label.split('HH')[-1]}" for label in label]
-    labels = [f"{l.split('}')[0]}{'}'}$" for l in labels]
+    # labels = [f"$HH{label.split('HH')[-1]}" for label in labels]
+    # labels = [f"{l.split('}')[0]}{'}'}$" for l in labels]
+    labels = ["$HH_{" + label.split("HH_{")[1].split("}")[0] + "}$" if "HH" in label else label for label in labels]
 
     plt.style.use(mplhep.style.CMS)
 
