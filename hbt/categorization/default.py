@@ -7,7 +7,6 @@ Exemplary selection methods.
 from columnflow.categorization import Categorizer, categorizer
 from columnflow.util import maybe_import
 
-
 ak = maybe_import("awkward")
 
 
@@ -20,6 +19,11 @@ def cat_incl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
     # fully inclusive selection
     return events, ak.ones_like(events.event) == 1
 
+
+@categorizer(uses={"Jet.pt"})
+def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
+    # two or more jets
+    return events, ak.num(events.Jet.pt, axis=1) >= 2
 
 @categorizer(uses={"Jet.pt"})
 def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
