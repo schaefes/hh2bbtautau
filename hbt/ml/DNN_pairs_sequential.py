@@ -181,7 +181,8 @@ class DenseBlock(tf.keras.layers.Layer):
 
 class DeepSet(tf.keras.Model):
 
-    def __init__(self, nodes, activations, aggregations, n_l2, masking_val, mean_jets, std_jets, mean_pairs, std_pairs, dict_vals, sequential_mode):
+    def __init__(self, nodes, activations, aggregations, n_l2, masking_val, mean_jets, std_jets,
+                 mean_pairs, std_pairs, dict_vals, sequential_mode, ff_mean, ff_std, event_to_jet):
         super(DeepSet, self).__init__()
         self.aggregations = aggregations
         self.masking_val = masking_val
@@ -193,9 +194,13 @@ class DeepSet(tf.keras.Model):
         # mean and std for standardization
         self.mean_jets = mean_jets
         self.std_jets = std_jets
-
         self.mean_pairs = mean_pairs
         self.std_pairs = std_pairs
+        self.ff_mean = ff_mean
+        self.ff_std = ff_std
+
+        # decide on information given to ds, if true: event level info for each jet
+        self.event_to_jet = event_to_jet
 
         # aggregation layers
         self.sum_layer = SumLayer()
