@@ -32,4 +32,13 @@ def stylize_processes(config: od.Config) -> None:
     if config.has_process("qcd"):
         config.processes.n.qcd.color1 = (242, 149, 99)
 
+    if config.has_process("graviton_hh_vbf_bbtautau_m400"):
+        config.processes.n.graviton_hh_vbf_bbtautau_m400.label = r"Graviton $\rightarrow HH_{vbf,m400}$ $\rightarrow bb\tau\tau$"
+
+    if config.has_process("graviton_hh_ggf_bbtautau_m400"):
+        config.processes.n.graviton_hh_ggf_bbtautau_m400.label = r"Graviton $\rightarrow HH_{ggf,m400}$ $\rightarrow bb\tau\tau$"
+
+    if config.has_process("graviton_hh_ggf_bbtautau_m1250"):
+        config.processes.n.graviton_hh_ggf_bbtautau_m1250.label = r"Graviton $\rightarrow HH_{ggf,m1250}$ $\rightarrow bb\tau\tau$"
+
     config.cms_label = "Private work in progress"
