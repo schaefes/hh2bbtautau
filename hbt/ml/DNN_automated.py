@@ -123,7 +123,8 @@ class DenseBlock(tf.keras.layers.Layer):
 
 class DeepSet(tf.keras.Model):
 
-    def __init__(self, nodes, activations, n_l2, aggregations, masking_val, mean, std):
+    def __init__(self, nodes, activations, n_l2, aggregations, masking_val, mean, std,
+                 ff_mean, ff_std, event_to_jet):
         super(DeepSet, self).__init__()
         self.aggregations = aggregations
         self.masking_val = masking_val
@@ -133,6 +134,11 @@ class DeepSet(tf.keras.Model):
         # mean and std for standardization
         self.mean = mean
         self.std = std
+        self.ff_mean = ff_mean
+        self.ff_std = ff_std
+
+        # decide on information given to ds, if true: event level info for each jet
+        self.event_to_jet = event_to_jet
 
         # aggregation layers
         self.sum_layer = SumLayer()
@@ -148,9 +154,17 @@ class DeepSet(tf.keras.Model):
 
     def call(self, inputs):
         # compute mask based on he masking value in inputs
-        mask = self.masking_layer.compute_mask(inputs)
-        inputs = (inputs - self.mean) / self.std
-        inputs_masked = tf.ragged.boolean_mask(inputs, mask)
+        ds_inputs, ff_inputs = inputs
+        mask = self.masking_layer.compute_mask(ds_inputs)
+        ds_inputs = (ds_inputs - self.mean) / self.std
+
+        if self.event_to_jet:
+            ff_inputs = (ff_inputs - self.ff_mean) / self.ff_std
+            ff_inputs = tf.tile(tf.expand_dims(ff_inputs, axis=1), (1, ds_inputs.shape[1], 1))
+            concat_inputs = tf.concat((ds_inputs, ff_inputs), axis=2)
+            inputs_masked = tf.ragged.boolean_mask(concat_inputs, mask)
+        else:
+            inputs_masked = tf.ragged.boolean_mask(ds_inputs, mask)
 
         x = self.hidden_layers[0](inputs_masked)
         for layer in self.hidden_layers[1:]:
@@ -226,14 +240,13 @@ class FeedForwardNetwork(tf.keras.Model):
 class CombinedDeepSetNetwork(tf.keras.Model):
     def __init__(self, deepset_config, feedforward_config):
         super(CombinedDeepSetNetwork, self).__init__()
-
         self.deepset_network = DeepSet(**deepset_config)
         self.concat_layer = tf.keras.layers.Concatenate(axis=1)
         self.feed_forward_network = FeedForwardNetwork(**feedforward_config)
 
     def call(self, inputs):
         deepset_inputs, feedforward_inputs = inputs
-        deepset_output = self.deepset_network(deepset_inputs)
+        deepset_output = self.deepset_network(inputs)
         concatenated_inputs = self.concat_layer((deepset_output, feedforward_inputs))
         output = self.feed_forward_network(concatenated_inputs)
         return output
