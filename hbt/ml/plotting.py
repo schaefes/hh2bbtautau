@@ -809,6 +809,7 @@ def write_info_file(
         phi_projection,
         sequential_mode,
         l2,
+        event_to_jet,
 ) -> None:
 
     # write info on model for the txt file
@@ -828,6 +829,8 @@ def write_info_file(
     if model_type != 'baseline':
         txt_input += 'Deep Sets Architecture:\n'
         txt_input += f'Input Features Deep Sets: {feature_names[0]}\n'
+        if event_to_jet:
+            txt_input += 'All event Level features added to each jet for DS'
         txt_input += f'Phi Projection relative to {phi_projection}\n'
         txt_input += f'Layers: {len(nodes_deepSets)}, Nodes: {nodes_deepSets}, Activation Function: {activation_func_deepSets}, Batch Norm: {batch_norm_deepSets}\n'
         txt_input += f'Input Features FF: {feature_names[1]}\n'
