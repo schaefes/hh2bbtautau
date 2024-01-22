@@ -34,7 +34,9 @@ processes = ["graviton_hh_vbf_bbtautau_m400", "graviton_hh_ggf_bbtautau_m400", "
 label_dict = {"graviton_hh_vbf_bbtautau_m400": 'Graviton $\\rightarrow HH_{vbf,m400}$ $\\rightarrow bb\\tau\\tau$',
               "graviton_hh_ggf_bbtautau_m400": 'Graviton $\\rightarrow HH_{ggf,m400}$ $\\rightarrow bb\\tau\\tau$',
               "tt": '$t\\bar{t}$ + Jets',
-              "dy": 'DY'}
+              "tt_sl": '$t\\bar{t}$ + SL, Jets',
+              "tt_dl": '$t\\bar{t}$ + DL, Jets',
+              "dy": 'Drell-Yan'}
 
 collection_dict = {}
 target_dict = {}
@@ -64,8 +66,8 @@ for num, proc in enumerate(processes_dict.keys()):
         if model_check != column.split("__")[-1]:
             raise Exception(f"Different models mixed up for process {proc}")
         if 'target_label' in column:
-            proc = "tt" if "tt" in proc else proc
-            proc = "dy" if "dy" in proc else proc
+            proc = "tt" if "tt" in proc and "tt" in processes else proc
+            proc = "dy" if "dy" in proc and "dy" in processes else proc
             target_dict[f'{proc}'] = scores[f'{column}'][0]
         if 'pred_target' in column:
             collection_dict[f'{column}'] = scores[f'{column}']
