@@ -17,10 +17,10 @@ processes = [
     "graviton_hh_ggf_bbtautau_m400",
     # "hh_ggf_bbtautau",
     "graviton_hh_vbf_bbtautau_m400",
-    # "tt_fh",
     "tt",
+    # "tt_dl",s
+    # "tt_sl",
     "dy",
-    # "tt_dl",
     # "dy_lep_pt50To100",
     # "dy_lep_pt100To250",
     # "dy_lep_pt250To400",
@@ -29,12 +29,13 @@ processes = [
 ]
 
 ml_process_weights = {
-    "graviton_hh_ggf_bbtautau_m400": 0,
+    "graviton_hh_ggf_bbtautau_m400": 1,
     # "hh_ggf_bbtautau": 0,
-    "graviton_hh_vbf_bbtautau_m400": 0,
-    "tt": 0,
-    "dy": 0,
-    # "dy": 0,
+    "graviton_hh_vbf_bbtautau_m400": 1,
+    "tt": 1.7,
+    # "tt_dl": 0,
+    # "tt_sl": 0,
+    "dy": 1,
 }
 
 dataset_names = {
@@ -50,14 +51,15 @@ dataset_names = {
 }
 
 jet_collection = "CustomVBFMaskJets2"
-kinematic_inp = ["e", "mass", "pt", "eta", "phi", "btag", "btagCvL", "btagCvB",
-                 "bFlavtag", "bFlavtagCvL", "bFlavtagCvB", "btagQG"]
+kinematic_inp = ["e", "mass", "pt", "eta", "phi", "jet_pt_frac", "btag", "btagCvL",
+                 "btagCvB", "bFlavtag", "bFlavtagCvL", "bFlavtagCvB", "btagQG"]
 deepSets_inp = [f"{jet_collection}_{kin_var}" for kin_var in kinematic_inp]
 
-event_level_inp = ["mbb", "mHH", "mtautau", "mjj", "ht", "mjj_dEta", "max_dEta", "njets"]
+event_level_inp = ["mbb", "mHH", "mtautau", "mjj", "ht", "mjj_dEta", "max_dEta",
+                   "thrust", "pt_thrust", "energy_corr_sqr", "sphericity", "njets"]
 event_features = [f"{jet_collection}_{feature}" for feature in event_level_inp]
 projection_phi = [f"{jet_collection}_METphi"]
-# DO NOT  SWITCH THE ORDER IN four_vector,  ONLY APPEND NEW AT THE END. THE COULUMS ARE EXPLICETELY
+# DO NOT  SWITCH THE ORDER IN four_vector, ONLY APPEND NEW AT THE END. THE COULUMS ARE EXPLICETELY
 # ADRESSED BY INDEX IN THE create_pairs FUNCTION
 four_vector = [f"{jet_collection}_{k}" for k in ["e", "px", "py", "pz", "phi", "eta", "btag",
                "btagCvL", "btagCvB", "bFlavtag", "bFlavtagCvL", "bFlavtagCvB", "btagQG"]]
@@ -72,6 +74,7 @@ latex_dict = {
     f"{jet_collection}_e": "Energy",
     f"{jet_collection}_mass": "Mass",
     f"{jet_collection}_pt": r"$p_{T}$",
+    f"{jet_collection}_pt_frac": r"$p_{T}$ Fraction",
     f"{jet_collection}_eta": r"$\eta$",
     f"{jet_collection}_phi": r"$\phi$",
     f"{jet_collection}_btag": "Deep B",
@@ -89,6 +92,12 @@ latex_dict = {
     f"{jet_collection}_max_dEta": r"max $\Delta \eta$",
     f"{jet_collection}_mjj_dEta": r"$m_{JJ}$ to max $\Delta \eta$",
     f"{jet_collection}_njets": "N Jets",
+    f"{jet_collection}_sphericity": r"$S_{T}$",
+    f"{jet_collection}_thrust": "Thrust",
+    f"{jet_collection}_pt_thrust": "Transversal Thrust",
+    f"{jet_collection}_energy_corr_sqr": r"ECF ($\beta$=2)",
+    f"{jet_collection}_energy_corr": r"ECF ($\beta$=1)",
+    f"{jet_collection}_energy_corr_root": r"ECF ($\beta$=0.5)",
 }
 
 # mask a copy of deepSets and events_features inp to make sure that input features remain unchanged
@@ -161,6 +170,7 @@ default_cls_dict = {
     "pair_vectors": four_vector,
     "pairs_dict_pad": pairs_dict_pad,
     "latex_dict": latex_dict,
+    "event_to_jet": False,
 }
 
 nodes_deepSets_op = 16
@@ -170,12 +180,12 @@ nodes_ff = [256, 256, 256, 256, 256, 256]
 
 # test model settings
 # choose str "baseline", "baseline_pairs", "DeepSets", "DeepSetsPP", "DeepSetsPS"
-model_type = "DeepSets"
+model_type = "DeepSetsPP"
 # chose what kind of sequential DS mode is used: "sum", "concat", "two_inp"
-sequential_mode = "sum"
+sequential_mode = "two_inp"
 cls_dict = default_cls_dict
 cls_dict["model_type"] = model_type
-cls_dict["model_name"] = f"{len(processes)}classes_{model_type}_bg_test"
+cls_dict["model_name"] = f"{len(processes)}classes_{model_type}_tt_reweight_1_7"
 cls_dict["sequential_mode"] = sequential_mode
 cls_dict["nodes_deepSets"] = nodes_deepSets
 cls_dict["nodes_deepSets_pairs"] = nodes_deepSets
