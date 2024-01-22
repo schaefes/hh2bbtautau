@@ -124,13 +124,12 @@ class DenseBlock(tf.keras.layers.Layer):
 
 class DeepSet(tf.keras.Model):
 
-    def __init__(self, nodes, activations, n_l2, aggregations, masking_val, inp_type, mean, std):
+    def __init__(self, nodes, activations, n_l2, aggregations, masking_val, inp_type, mean, std,
+                 ff_mean, ff_std, event_to_jet):
         super(DeepSet, self).__init__()
         self.aggregations = aggregations
         self.masking_val = masking_val
         self.inp_type = inp_type
-        self.mean = mean
-        self.std = std
         self.hidden_layers = [DenseBlock(node, activation, n_l2, deepset=True, inp_type=self.inp_type)
                               for node, activation in zip(nodes, activations)]
 
@@ -142,6 +141,15 @@ class DeepSet(tf.keras.Model):
         self.var_layer = VarLayer()
         self.std_layer = StdLayer()
         self.concat_layer = tf.keras.layers.Concatenate(axis=1)
+
+        # mean and std values
+        self.mean = mean
+        self.std = std
+        self.ff_mean = ff_mean
+        self.ff_std = ff_std
+
+        # decide on information given to ds, if true: event level info for each jet
+        self.event_to_jet = event_to_jet
 
         # masking layer
         self.masking_layer = tf.keras.layers.Masking(mask_value=masking_val)
