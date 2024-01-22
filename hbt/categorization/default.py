@@ -24,8 +24,3 @@ def cat_incl(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, a
 def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
     # two or more jets
     return events, ak.num(events.Jet.pt, axis=1) >= 2
-
-@categorizer(uses={"Jet.pt"})
-def cat_2j(self: Categorizer, events: ak.Array, **kwargs) -> tuple[ak.Array, ak.Array]:
-    # two or more jets
-    return events, ak.num(events.Jet.pt, axis=1) >= 2

@@ -20,6 +20,7 @@ from columnflow.config_util import (
     get_root_processes_from_campaign, add_shift_aliases, get_shifts_from_sources,
     verify_config_processes,
 )
+from columnflow.columnar_util import ColumnCollection
 
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -692,6 +693,7 @@ def add_config(
             "CustomVBFMaskJets2.nConstituents", "MET.*", "CustomVBFMaskJets2.btagDeepCvB",
             "CustomVBFMaskJets2.btagDeepFlavCvB", "CustomVBFMaskJets2.btagDeepCvL",
             "CustomVBFMaskJets2.btagDeepB",
+            ColumnCollection.ALL_FROM_SELECTOR,
         },
         "cf.MergeSelectionMasks": {
             "cutflow.*",
@@ -789,4 +791,11 @@ def add_config(
         cfg.x.get_dataset_lfns_sandbox = dev_sandbox("bash::$CF_BASE/sandboxes/cf.sh")
 
         # define custom remote fs's to look at
-        cfg.x.get_dataset_lfns_remote_fs = lambda dataset_inst: f"wlcg_fs_{cfg.campaign.x.custom['name']}"
+        def get_dataset_lfns_fs(dataset_inst: od.Dataset) -> list[str]:
+            fs = []
+            if os.path.isdir("/pnfs"):
+                fs.append(f"local_fs_{cfg.campaign.x.custom['name']}")
+            fs.append(f"wlcg_fs_{cfg.campaign.x.custom['name']}")
+            return fs
+
+        cfg.x.get_dataset_lfns_remote_fs = get_dataset_lfns_fs
