@@ -378,10 +378,11 @@ def kinematic_vars_customvbfmaskjets(self: Producer, events: ak.Array, **kwargs)
         "CustomVBFMaskJets2_mHH", "CustomVBFMaskJets2_mtautau", "CustomVBFMaskJets2_jet_pt_frac",
         "CustomVBFMaskJets2_thrust", "CustomVBFMaskJets2_pt_thrust", "CustomVBFMaskJets2_sphericity",
         "CustomVBFMaskJets2_energy_corr", "CustomVBFMaskJets2_energy_corr_root",
-        "CustomVBFMaskJets2_energy_corr_sqr", "CustomVBFMaskJets2_event_pt_frac",
+        "CustomVBFMaskJets2_energy_corr_sqr",
     },
 )
 def kinematic_vars_customvbfmaskjets2(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
+    from IPython import embed; embed()
     events = self[attach_coffea_behavior](events, collections={"CustomVBFMaskJets2": {"type_name": "Jet"}, "Tau": {"type_name": "Tau"}}, **kwargs)
     n_jets = ak.count(events.CustomVBFMaskJets2.pt, axis=1)
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_njets", n_jets)
@@ -477,10 +478,6 @@ def kinematic_vars_customvbfmaskjets2(self: Producer, events: ak.Array, **kwargs
     jets_pz = ak.fill_none(p_z, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_pz", jets_pz)
 
-    event_pt_frac = ak.sum(jets_pt, axis=1) / ak.sum(p, axis=1)
-    event_pt_frac = np.clip(event_pt_frac, 0, 1)
-    events = set_ak_column_f32(events, "CustomVBFMaskJets2_event_pt_frac", ak.fill_none(event_pt_frac, EMPTY_FLOAT))
-
     jet_pt_frac = jets_pt / p
     jet_pt_frac = np.clip(jet_pt_frac, 0, 1)
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_jet_pt_frac", ak.fill_none(jet_pt_frac, EMPTY_FLOAT))
@@ -533,7 +530,6 @@ def kinematic_vars_customvbfmaskjets2(self: Producer, events: ak.Array, **kwargs
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_mbb", ak.fill_none(m_bb, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_mHH", ak.fill_none(m_HH, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_mtautau", ak.fill_none(m_tau, EMPTY_FLOAT))
-    from IPython import embed; embed()
     return events
 
 
