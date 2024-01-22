@@ -360,6 +360,7 @@ class SimpleDNN(MLModel):
             produced.add(f"{self.cls_name}.pred_target_{proc}__{self.model_name}")
             produced.add(f"{self.cls_name}.target_label_{proc}__{self.model_name}")
             produced.add(f"{self.cls_name}.events_weights_{proc}__{self.model_name}")
+            produced.add(f"mlscore.{proc}")
             for i in range(self.folds):
                 produced.add(f"{self.cls_name}.pred_fold_{i}_{proc}__{self.model_name}")
                 produced.add(f"{self.cls_name}.pred_model_{proc}_fold{i}__{self.model_name}")
@@ -421,6 +422,8 @@ class SimpleDNN(MLModel):
             self.pairs_dict_tf[k] = tf.convert_to_tensor(v)
         '''Kepp the -1 as a dummy value for the padded pairs, based on the -1 the mask in the
         CreatePairs layer is computed to mask the pairs.'''
+        self.ml_process_factors = dict(self.ml_process_weights)
+        self.ml_process_weights.update(dict.fromkeys(self.ml_process_weights.keys(), 0))
         if self.quantity_weighting:
             # properly define the ml_process_weights through the number of events per dataset
             for dataset0, files0 in input["events"][self.config_inst.name].items():
@@ -432,12 +435,13 @@ class SimpleDNN(MLModel):
 
                 N_events = sum([len(ak.from_parquet(inp["mlevents"].fn)) for inp in files0])
                 process_name = "_".join(dataset0.split("_")[:-1])
-                process_name = "tt" if "tt" in process_name else process_name
-                process_name = "dy" if "dy" in process_name else process_name
+                process_name = "tt" if "tt" in process_name and "tt" in self.processes else process_name
+                process_name = "dy" if "dy" in process_name and "dy" in self.processes else process_name
                 self.ml_process_weights[process_name] += N_events
             max_events_of_proc = np.max(list(self.ml_process_weights.values()))
             for key_proc, value_proc in self.ml_process_weights.items():
                 self.ml_process_weights[key_proc] = max_events_of_proc / value_proc
+                self.ml_process_weights[key_proc] *= self.ml_process_factors[key_proc]
 
         # max_events_per_fold = int(self.max_events / (self.folds - 1))
         self.process_insts = []
@@ -736,10 +740,12 @@ class SimpleDNN(MLModel):
         dict_vals = tf.stack(list(self.pairs_dict_tf.values()))
         deepset_config_jets = {'nodes': self.nodes_deepSets, 'activations': self.activation_func_deepSets,
             'n_l2': self.l2, 'aggregations': self.aggregations, 'masking_val': self.masking_val,
-            'mean': train_norm['mean_jets'], 'std': train_norm['std_jets']}
+            'mean': train_norm['mean_jets'], 'std': train_norm['std_jets'], 'ff_mean': train_norm['mean_inputs2'],
+            'ff_std': train_norm['std_inputs2'], 'event_to_jet': self.event_to_jet}
         deepset_config_pairs = {'nodes': self.nodes_deepSets, 'activations': self.activation_func_deepSets,
             'n_l2': self.l2, 'aggregations': self.aggregations, 'masking_val': self.masking_val,
-            'mean': train_norm['mean_pairs'], 'std': train_norm['std_pairs']}
+            'mean': train_norm['mean_pairs'], 'std': train_norm['std_pairs'], 'ff_mean': train_norm['mean_inputs2'],
+            'ff_std': train_norm['std_inputs2'], 'event_to_jet': self.event_to_jet}
         deepset_config_sequential = {'nodes': self.nodes_deepSets, 'activations': self.activation_func_deepSets,
             'n_l2': self.l2, 'aggregations': self.aggregations, 'masking_val': self.masking_val,
             'mean_jets': train_norm['mean_jets'], 'std_jets': train_norm['std_jets'],
@@ -824,7 +830,6 @@ class SimpleDNN(MLModel):
         class_weights_dict = {}
         for proc_name, target in self.target_dict.items():
             class_weights_dict[target] = self.ml_process_weights[proc_name]
-
         fit_kwargs = {
             "epochs": self.epochs,
             "callbacks": [early_stopping, reduceLR],
@@ -864,7 +869,8 @@ class SimpleDNN(MLModel):
             self.n_output_nodes, self.batch_norm_deepSets, self.batch_norm_ff, self.input_features,
             self.process_insts, self.activation_func_deepSets, self.activation_func_ff, self.learningrate,
             self.ml_process_weights, self.jet_num_cut, self.ml_process_weights,
-            self.model_type, self.jet_collection, self.projection_phi, self.sequential_mode, self.l2)
+            self.model_type, self.jet_collection, self.projection_phi, self.sequential_mode, self.l2,
+            self.event_to_jet)
 
     def evaluate(
         self,
@@ -879,8 +885,8 @@ class SimpleDNN(MLModel):
         # output_all_folds = task.target(f"mlmodel_all_folds_{self.model_name}", dir=True)
         logger.info(f"Evaluation of dataset {task.dataset}")
         proc_name = "_".join(task.dataset.split("_")[:-1])
-        proc_name = "tt" if "tt" in proc_name else proc_name
-        proc_name = "dy" if "dy" in proc_name else proc_name
+        proc_name = "tt" if "tt" in proc_name and "tt" in self.processes else proc_name
+        proc_name = "dy" if "dy" in proc_name and "dy" in self.processes else proc_name
         models, history = zip(*models)
         model0 = models[0]
         if self.model_type == "DeepSetsPS":
@@ -987,12 +993,10 @@ class SimpleDNN(MLModel):
 
         if len(outputs[0]) != len(self.processes):
             raise Exception("Number of output nodes should be equal to number of processes")
-        '''Create on column for each proc containing the NN output score of output node associated
-        with that process.'''
-        # for i, proc in enumerate(self.processes):
-        #     events = set_ak_column(
-        #         events, f"{self.cls_name}.score_{proc}", outputs[:, i],
-        #     )
+
+        for i, proc in enumerate(self.processes):
+            events = set_ak_column(events, f"mlscore.{proc}", outputs[:, i])
+
         events = set_ak_column(events, f"{self.cls_name}.predictions_{proc_name}__{self.model_name}", test["prediction"])
         pred_target = np.concatenate((test["prediction"], target), axis=1)
         events = set_ak_column(events, f"{self.cls_name}.pred_target_{proc_name}__{self.model_name}", pred_target)
