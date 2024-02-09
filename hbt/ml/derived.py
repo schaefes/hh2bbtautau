@@ -30,9 +30,9 @@ processes = [
 
 ml_process_weights = {
     "graviton_hh_ggf_bbtautau_m400": 1,
-    # "hh_ggf_bbtautau": 0,
+    # "hh_ggf_bbtautau": 1,
     "graviton_hh_vbf_bbtautau_m400": 1,
-    "tt": 1.7,
+    "tt": 1,
     # "tt_dl": 0,
     # "tt_sl": 0,
     "dy": 1,
@@ -40,6 +40,7 @@ ml_process_weights = {
 
 dataset_names = {
     "graviton_hh_ggf_bbtautau_m400_madgraph",
+    # "hh_ggf_bbtautau_madgraph",
     "graviton_hh_vbf_bbtautau_m400_madgraph",
     "tt_dl_powheg",
     "tt_sl_powheg",
@@ -51,18 +52,23 @@ dataset_names = {
 }
 
 jet_collection = "CustomVBFMaskJets2"
-kinematic_inp = ["e", "mass", "pt", "eta", "phi", "jet_pt_frac", "btag", "btagCvL",
-                 "btagCvB", "bFlavtag", "bFlavtagCvL", "bFlavtagCvB", "btagQG"]
+kinematic_inp = ["e", "mass", "pt", "eta", "phi", "jet_pt_frac", "bFlavtag", "bFlavtagCvL",
+                 "bFlavtagCvB", "btagQG"]
 deepSets_inp = [f"{jet_collection}_{kin_var}" for kin_var in kinematic_inp]
 
 event_level_inp = ["mbb", "mHH", "mtautau", "mjj", "ht", "mjj_dEta", "max_dEta",
-                   "thrust", "pt_thrust", "energy_corr_sqr", "sphericity", "njets"]
+                   "thrust", "pt_thrust", "energy_corr_sqr", "sphericity",
+                   "njets"]
 event_features = [f"{jet_collection}_{feature}" for feature in event_level_inp]
 projection_phi = [f"{jet_collection}_METphi"]
+
+baseline_padding = [0., 0., 0., -5., -4., 0., -1., -1., -1., -1.]
+
 # DO NOT  SWITCH THE ORDER IN four_vector, ONLY APPEND NEW AT THE END. THE COULUMS ARE EXPLICETELY
 # ADRESSED BY INDEX IN THE create_pairs FUNCTION
-four_vector = [f"{jet_collection}_{k}" for k in ["e", "px", "py", "pz", "phi", "eta", "btag",
-               "btagCvL", "btagCvB", "bFlavtag", "bFlavtagCvL", "bFlavtagCvB", "btagQG"]]
+four_vector = [f"{jet_collection}_{k}" for k in ["e", "px", "py", "pz", "phi", "eta",
+               "bFlavtag", "bFlavtagCvL", "bFlavtagCvB", "btagQG"]]
+four_vector_padding = [0., 0., 0., 0., -4., -5., -1., -1., -1., -1.]
 
 input_features = [deepSets_inp, event_features]
 no_norm_features = [f"{jet_collection}_ones", f"{jet_collection}_btag", f"{jet_collection}_btagCvL",
@@ -159,7 +165,8 @@ default_cls_dict = {
     "aggregations_pairs": ["Sum", "Max", "Mean"],
     "norm_features": norm_features,
     "quantity_weighting": True,
-    "jet_num_cut": 1,
+    "jet_num_lower": 1, #incl
+    "jet_num_upper": 15, #excl
     "baseline_jets": baseline_jets,
     "baseline_pairs": baseline_pairs,
     "jet_collection": jet_collection,
@@ -171,29 +178,68 @@ default_cls_dict = {
     "pairs_dict_pad": pairs_dict_pad,
     "latex_dict": latex_dict,
     "event_to_jet": False,
+    "baseline_padding": baseline_padding,
+    "pairs_padding": four_vector_padding,
 }
-
-nodes_deepSets_op = 16
-nodes_deepSets = [80, 60, 60, nodes_deepSets_op]
-nodes_ff = [256, 256, 256, 256, 256, 256]
 
 
 # test model settings
 # choose str "baseline", "baseline_pairs", "DeepSets", "DeepSetsPP", "DeepSetsPS"
-model_type = "DeepSetsPP"
 # chose what kind of sequential DS mode is used: "sum", "concat", "two_inp"
-sequential_mode = "two_inp"
+model_type = "DeepSets"
+sequential_mode = "sum"
+
+# NN architecture
+nodes_deepSets_op = 16
+nodes_deepSets = [80, 60, 60, nodes_deepSets_op]
+nodes_ff_ds = [256, 256, 256, 256, 256, 256]
+nodes_baseline = [128, 256, 256, 256, 256, 256, 256]
+model_name = f"{len(processes)}classes_{model_type}"
+# used to add short description in the model name
+model_name_desc = ""
+
 cls_dict = default_cls_dict
 cls_dict["model_type"] = model_type
-cls_dict["model_name"] = f"{len(processes)}classes_{model_type}_tt_reweight_1_7"
 cls_dict["sequential_mode"] = sequential_mode
 cls_dict["nodes_deepSets"] = nodes_deepSets
 cls_dict["nodes_deepSets_pairs"] = nodes_deepSets
-cls_dict["nodes_ff"] = nodes_ff
+cls_dict["nodes_ff_ds"] = nodes_ff_ds
+cls_dict["nodes_baseline"] = nodes_baseline
 cls_dict["activation_func_deepSets"] = ["selu" for i in range(len(nodes_deepSets))]
-cls_dict["activation_func_ff"] = ["selu" for i in range(len(nodes_ff))]
+cls_dict["activation_func_ff_ds"] = ["selu" for i in range(len(nodes_ff_ds))]
+cls_dict["activation_func_baseline"] = ["selu" for i in range(len(nodes_baseline))]
 
-test_dnn = SimpleDNN.derive("test", cls_dict=cls_dict)
+if model_type == "baseline":
+    model_name = "_".join([model_name, model_name_desc]) if model_name_desc else model_name
+    cls_dict["model_name"] = model_name
+    baseline_4classes = SimpleDNN.derive(model_name, cls_dict=cls_dict)
+elif model_type == "baseline_pairs":
+    model_name = "_".join([model_name, model_name_desc]) if model_name_desc else model_name
+    cls_dict["model_name"] = model_name
+    baseline_pairs_4classes = SimpleDNN.derive(model_name, cls_dict=cls_dict)
+elif model_type == "DeepSets":
+    model_name = "_".join([model_name, model_name_desc]) if model_name_desc else model_name
+    cls_dict["model_name"] = model_name
+    deepsets_4classes = SimpleDNN.derive(model_name, cls_dict=cls_dict)
+elif model_type == "DeepSetsPP":
+    model_name = "_".join([model_name, model_name_desc]) if model_name_desc else model_name
+    cls_dict["model_name"] = model_name
+    DeepSetsPP_4classes = SimpleDNN.derive(model_name, cls_dict=cls_dict)
+elif model_type == "DeepSetsPS" and sequential_mode == "sum":
+    model_ps = "_".join([model_name, sequential_mode])
+    model_name = "_".join([model_ps, model_name_desc]) if model_name_desc else model_ps
+    cls_dict["model_name"] = model_name
+    deepsetsPS_sum_4classes = SimpleDNN.derive(model_name, cls_dict=cls_dict)
+elif model_type == "DeepSetsPS" and sequential_mode == "concat":
+    model_ps = "_".join([model_name, sequential_mode])
+    model_name = "_".join([model_ps, model_name_desc]) if model_name_desc else model_ps
+    cls_dict["model_name"] = model_name
+    deepsetsPS_concat_4classes = SimpleDNN.derive(model_name, cls_dict=cls_dict)
+elif model_type == "DeepSetsPS" and sequential_mode == "two_inp":
+    model_ps = "_".join([model_name, sequential_mode])
+    model_name = "_".join([model_ps, model_name_desc]) if model_name_desc else model_ps
+    cls_dict["model_name"] = model_name
+    deepsetsPS_two_inp_4classes = SimpleDNN.derive(model_name, cls_dict=cls_dict)
 
 # law run cf.PlotMLResults --plot-function roc --general-settings "evaluation_type=ovr" --ml-model test --datasets graviton_hh_ggf_bbtautau_m400_madgraph,graviton_hh_vbf_bbtautau_m400_madgraph,tt_dl_powheg,tt_sl_powheg,dy_lep_pt50To100_amcatnlo,dy_lep_pt100To250_amcatnlo,dy_lep_pt250To400_amcatnlo,dy_lep_pt400To650_amcatnlo,dy_lep_pt650_amcatnlo --version PairsML
 # law run cf.MLTraining --version PairsML --ml-model test --config run2_2017_nano_uhh_v11_limited --cf.MLTraining-workflow htcondor --cf.MLTraining-htcondor-memory 20GB
