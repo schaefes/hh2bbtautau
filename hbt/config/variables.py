@@ -2572,3 +2572,34 @@ def add_variables(config: od.Config) -> None:
         binning=(30, 0.0, 8.5),
         x_title=r"Gen Matched VBF Jets $\eta$",
     )
+
+    # Datacards Variables
+    config.add_variable(
+        name="mlscore.graviton_hh_vbf_bbtautau_m400",
+        expression="mlscore.graviton_hh_vbf_bbtautau_m400",
+        null_value=EMPTY_FLOAT,
+        binning=(10, 0., 1.),
+        x_title=r"ML Category HH$_{VBF, m400}$",
+    )
+    config.add_variable(
+        name="mlscore.graviton_hh_ggf_bbtautau_m400",
+        expression="mlscore.graviton_hh_ggf_bbtautau_m400",
+        null_value=EMPTY_FLOAT,
+        binning=(10, 0., 1.),
+        x_title=r"ML Category HH$_{GGF, m400}$",
+    )
+    config.add_variable(
+        name="mlscore.dy",
+        expression="mlscore.dy",
+        null_value=EMPTY_FLOAT,
+        binning=(10, 0., 1.),
+        x_title=r"ML Category HH$_{DY, m400}$",
+    )
+    config.add_variable(
+        name="mlscore.tt",
+        expression="mlscore.tt",
+        null_value=EMPTY_FLOAT,
+        binning=(10, 0., 1.),
+        x_title=r"ML Category HH$_{t\bar{t}, m400}$",
+    )
+
