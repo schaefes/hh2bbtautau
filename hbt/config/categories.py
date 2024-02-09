@@ -5,10 +5,16 @@ Definition of categories.
 """
 
 import order as od
+import law
 
-from columnflow.config_util import add_category
+from columnflow.config_util import add_category, create_category_combinations
+from columnflow.ml import MLModel
+from hbt.util import call_once_on_config
 
 from collections import OrderedDict
+
+
+logger = law.logger.get_logger(__name__)
 
 
 def add_categories(config: od.Config) -> None:
@@ -195,7 +201,29 @@ def add_categories(config: od.Config) -> None:
         label="Custom\nVBF Mask",
     )
 
+
+def name_fn(root_cats):
+    cat_name = "__".join(cat.name for cat in root_cats.values())
+    return cat_name
+
+
+def kwargs_fn(root_cats):
+    kwargs = {
+        "id": sum([c.id for c in root_cats.values()]),
+        "label": ",\n".join([root_cats['incl'].label, root_cats['dnn'].label]),
+        "aux": {
+            "root_cats": {key: value.name for key, value in root_cats.items()},
+        },
+    }
+    return kwargs
+
+
+@call_once_on_config()
 def add_categories_ml(config, ml_model_inst):
+
+    # if not already done, get the ml_model instance
+    if isinstance(ml_model_inst, str):
+        ml_model_inst = MLModel.get_cls(ml_model_inst)(config)
 
     # add ml categories directly to the config
     ml_categories = []
@@ -206,13 +234,11 @@ def add_categories_ml(config, ml_model_inst):
             name=f"ml_{proc}",
             id=(i + 1) * 10000,
             selection=f"catid_ml_{proc}",
-            label=f"ml_{proc}",
+            label=f"{config.get_process(proc).label} (ML)",
         ))
 
     category_blocks = OrderedDict({
-        "lep": [config.get_category("1e"), config.get_category("1mu")],
-        "jet": [config.get_category("resolved"), config.get_category("boosted")],
-        "b": [config.get_category("1b"), config.get_category("2b")],
+        "incl": [config.get_category("incl")],
         "dnn": ml_categories,
     })
 
