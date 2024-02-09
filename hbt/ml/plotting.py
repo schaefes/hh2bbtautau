@@ -134,8 +134,8 @@ def plot_confusion(
     matrix_display.plot(ax=ax)
     matrix_display.im_.set_clim(0, 1)
 
-    ax.set_title(f"{input_type} set, rows normalized", fontsize=32, loc="left")
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
+    # ax.set_title(f"{input_type} set, rows normalized", fontsize=32, loc="left")
+    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=0)
     output.child(f"Confusion_{input_type}_{sorting}.pdf", type="f").dump(fig, formatter="mpl")
 
 
@@ -176,14 +176,16 @@ def plot_roc_ovr(
     ax.set_ylabel("Signal selection efficiency (TPR)")
 
     # legend
-    labels = [proc_inst.label for proc_inst in process_insts] if process_insts else range(n_classes)
+    labels_ext = [proc_inst.label for proc_inst in process_insts] if process_insts else None
+    labels = ["$HH_{" + label.split("HH_{")[1].split("}")[0] + "}$" if "HH" in label else label for label in labels_ext]
+
     ax.legend(
         [f"Signal: {labels[i]} (AUC: {auc_score:.4f})" for i, auc_score in enumerate(auc_scores)],
-        loc="best",
+        loc="lower right",
     )
     mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
 
-    output.child(f"ROC_ovr_{input_type}_{sorting}.pdf", type="f").dump(fig, formatter="mpl")
+    output.child(f"ROC_ovr_{input_type}.pdf", type="f").dump(fig, formatter="mpl")
 
 
 def plot_roc_ovr_binary(
@@ -228,7 +230,7 @@ def plot_roc_ovr_binary(
     )
     mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
 
-    output.child(f"ROC_ovr_{input_type}_{sorting}.pdf", type="f").dump(fig, formatter="mpl")
+    output.child(f"ROC_ovr_{input_type}.pdf", type="f").dump(fig, formatter="mpl")
 
 
 def plot_output_nodes(
@@ -792,17 +794,20 @@ def write_info_file(
         output: law.FileSystemDirectoryTarget,
         agg_funcs,
         nodes_deepSets,
-        nodes_ff,
+        nodes_ff_ds,
+        nodes_baseline,
         n_output_nodes,
         batch_norm_deepSets,
         batch_norm_ff,
         feature_names,
         process_insts,
         activation_func_deepSets,
-        activation_func_ff,
+        activation_func_ff_ds,
+        activation_func_baseline,
         learningrate,
         ml_proc_weights,
-        min_jet_num,
+        jet_num_lower,
+        jet_num_upper,
         loss_weights,
         model_type,
         jet_collection,
@@ -820,13 +825,16 @@ def write_info_file(
     txt_input = f'Processes: {[process_insts[i].name for i in range(len(process_insts))]}\n'
     txt_input += f'Jet Collection used: {jet_collection}\n'
     txt_input += f'Initial Learning Rate: {learningrate}, Input Handling: Standardization Z-Score \n'
-    txt_input += f'Required number of Jets per Event: {min_jet_num + 1}\n'
+    txt_input += f'Required min. number of Jets per Event: {jet_num_lower}\n'
+    txt_input += f'Required max. number of Jets per Event: {jet_num_upper - 1}\n'
     txt_input += f'L2: {l2}'
     txt_input += f'Weights used in Loss: {loss_weights.items()}\n'
-    if model_type == 'baseline':
+    if "baseline" in model_type:
         txt_input += f'Input Features Baseline: {feature_names[0]} + {feature_names[1]}\n'
         txt_input += f'Phi Projection relative to {phi_projection}\n'
-    if model_type != 'baseline':
+        txt_input += 'Architecture:\n'
+        txt_input += f'Layers: {len(nodes_baseline)}, Nodes: {nodes_baseline}, Activation Function: {activation_func_baseline}, Batch Norm: {batch_norm_ff}\n'
+    if "DeepSets" in model_type:
         txt_input += 'Deep Sets Architecture:\n'
         txt_input += f'Input Features Deep Sets: {feature_names[0]}\n'
         if event_to_jet:
@@ -835,9 +843,9 @@ def write_info_file(
         txt_input += f'Layers: {len(nodes_deepSets)}, Nodes: {nodes_deepSets}, Activation Function: {activation_func_deepSets}, Batch Norm: {batch_norm_deepSets}\n'
         txt_input += f'Input Features FF: {feature_names[1]}\n'
         txt_input += f'Aggregation Functions: {agg_funcs} \n'
+        txt_input += 'FF Architecture:\n'
+        txt_input += f'Layers: {len(nodes_ff_ds)}, Nodes: {nodes_ff_ds}, Activation Function: {activation_func_ff_ds}, Batch Norm: {batch_norm_ff}\n'
     txt_input += f'{ml_proc_weights}'
-    txt_input += 'FF Architecture:\n'
-    txt_input += f'Layers: {len(nodes_ff)}, Nodes: {nodes_ff}, Activation Function: {activation_func_ff}, Batch Norm: {batch_norm_ff}\n'
 
     output.child('model_specifications.txt', type="d").dump(txt_input, formatter="text")
 
