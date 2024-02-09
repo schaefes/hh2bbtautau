@@ -8,6 +8,7 @@ from plotting_funcs import (plot_confusion, plot_roc_ovr, plot_output_nodes,
 import os
 import awkward as ak
 
+
 # t = MLEvaluationWrapper(
 #     version="BtagsCustomVBFMaskJets2",
 #     ml_model="test",
@@ -19,6 +20,9 @@ import awkward as ak
 # )
 
 # t.law_run()
+
+model_parse = "4classes_baseline_new_pad"
+
 processes_dict = {"graviton_hh_vbf_bbtautau_m400": "graviton_hh_ggf_bbtautau_m400_madgraph",
             "graviton_hh_ggf_bbtautau_m400": "graviton_hh_vbf_bbtautau_m400_madgraph",
             "tt_sl": "tt_sl_powheg",
@@ -49,7 +53,7 @@ fold_pred = {}
 for num, proc in enumerate(processes_dict.keys()):
     t = MLEvaluation(
         version="PairsML",
-        ml_model="test",
+        ml_model=model_parse,
         dataset=processes_dict[proc],
         calibrators=("skip_jecunc",),
         # print_status=(3,),
@@ -57,7 +61,7 @@ for num, proc in enumerate(processes_dict.keys()):
     files = t.output()
     data = files.collection[0]["mlcolumns"].load(formatter="awkward")
     # get part of the model name from the column name
-    scores = data.test
+    scores = getattr(data, model_parse)
     model_check = scores.fields[0].split("__")[-1]
     if num != 0:
         if prev_model != model_check:
