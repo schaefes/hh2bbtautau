@@ -382,12 +382,14 @@ def kinematic_vars_customvbfmaskjets(self: Producer, events: ak.Array, **kwargs)
     },
 )
 def kinematic_vars_customvbfmaskjets2(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
-    from IPython import embed; embed()
     events = self[attach_coffea_behavior](events, collections={"CustomVBFMaskJets2": {"type_name": "Jet"}, "Tau": {"type_name": "Tau"}}, **kwargs)
     n_jets = ak.count(events.CustomVBFMaskJets2.pt, axis=1)
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_njets", n_jets)
     max_njets = np.max(n_jets)
+    max_taus = np.max(ak.count(events.Tau.pt, axis=1))
     N_events = len(events.CustomVBFMaskJets2)
+    anti_tau = ak.pad_none(events.Tau[events.Tau.charge == 1], max_taus)
+    tau = ak.pad_none(events.Tau[events.Tau.charge == -1], max_taus)
 
     # Get max dEta and the corresponing invariant mass
     max_dEta, inv_mass_dEta, max_inv_mass_vals = dEta_and_inv_mass(events.CustomVBFMaskJets2, n_jets)
@@ -517,16 +519,15 @@ def kinematic_vars_customvbfmaskjets2(self: Producer, events: ak.Array, **kwargs
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_METphi", ak.fill_none(events.MET.phi, EMPTY_FLOAT))
 
     # calculate mbb for the two jets leading in bTagDeepFlav score
-    # super slow
     event_idx = np.arange(N_events).reshape(N_events, -1)
-    b_idx = np.array(np.argsort(jets_bFlavtag, axis=1)[:, -2:])
+    b_idx = np.array(np.flip(np.argsort(jets_bFlavtag, axis=1), axis=1)[:, :2])
     bjets = events.CustomVBFMaskJets2[event_idx, b_idx]
     m_bb = bjets.sum(axis=1).mass
-    m_tau = events.Tau[:, :2].sum(axis=1).mass
-    m_HH = (bjets.sum(axis=1) + events.Tau[:, :2].sum(axis=1)).mass
-    m_mask = np.where(ak.num(events.Tau) < 2, True, False)
-    m_HH = np.where(m_mask, EMPTY_FLOAT, m_HH)
-    m_tau = np.where(m_mask, EMPTY_FLOAT, m_tau)
+    m_tau = inv_mass(tau[:, 0], anti_tau[:, 0])
+    m_HH = (bjets[:, 0] + bjets[:, 1] + tau[:, 0] + anti_tau[:, 0]).mass
+    m_mask = (ak.count(tau.pt, axis=1) > 0) & (ak.count(anti_tau.pt, axis=1) > 0)
+    m_HH = np.where(m_mask, m_HH, EMPTY_FLOAT)
+    m_tau = np.where(m_mask, m_tau, EMPTY_FLOAT)
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_mbb", ak.fill_none(m_bb, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_mHH", ak.fill_none(m_HH, EMPTY_FLOAT))
     events = set_ak_column_f32(events, "CustomVBFMaskJets2_mtautau", ak.fill_none(m_tau, EMPTY_FLOAT))
