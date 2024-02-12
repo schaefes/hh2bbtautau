@@ -242,6 +242,18 @@ def reshape_norm_inputs(events_dict, norm_features, input_features, n_op_nodes, 
     return events_dict, norm_dict
 
 
+# function to extend the array to a given length, used for evaluation.
+# Necessary if jet_num masking is applied, and evaluation desired only on events that fulfill the condition
+def extend(arr, mask):
+    arr_masked = arr[mask]
+    ext = len(arr) - len(arr_masked)
+    try:
+        arr_ext = np.pad(arr_masked, ((0, ext), (0, 0)), 'constant', constant_values=(EMPTY_FLOAT))
+    except:
+        arr_ext = np.pad(arr_masked, ((0, ext)), 'constant', constant_values=(EMPTY_FLOAT))
+    return arr_ext
+
+
 class SimpleDNN(MLModel):
 
     def __init__(
@@ -538,7 +550,13 @@ class SimpleDNN(MLModel):
 
             self.target_dict[f'{proc_name}'] = this_proc_idx
             for inp in files:
+                # make a cut on events based on a min number of jets required per event
+                # get the string name of njets for the given jet collection
                 events = ak.from_parquet(inp["mlevents"].path)
+                njets_field = [i for i in self.input_features[1] if 'njets' in i][0]
+                events_n_jets = getattr(events, njets_field)
+                mask = (events_n_jets >= self.jet_num_lower) & (events_n_jets < self.jet_num_upper)
+                events = events[mask]
                 weights = events.normalization_weight
                 if self.eqweight:
                     weights = weights * weights_scaler / sum_eventweights_proc
@@ -561,15 +579,9 @@ class SimpleDNN(MLModel):
                         print(f"removing column {var}")
                         events = remove_ak_column(events, var)
 
-                # make a cut on events based on a min number of jets required per event
-                # get the string name of njets for the given jet collection
-                njets_field = [i for i in self.input_features[1] if 'njets' in i][0]
-                events_n_jets = getattr(events, njets_field)
-                mask = (events_n_jets >= self.jet_num_lower) & (events_n_jets < self.jet_num_upper)
-                weights = weights[mask]
                 events_new = {}
                 for feature in events.fields:
-                    events_new[feature] = events[feature][mask]
+                    events_new[feature] = events[feature]
                 events_new = ak.Array(events_new)
 
                 events2 = events_new[self.input_features[1]]
@@ -1002,7 +1014,7 @@ class SimpleDNN(MLModel):
             weights = ak.where(mask_weights, events.normalization_weight, weights)
             w = np.array(weights).reshape(-1, 1)
             fold_op = np.concatenate((fold_op, w), axis=1)
-            events = set_ak_column(events, f"{self.cls_name}.pred_fold_{i}_{proc_name}__{self.model_name}", fold_op)
+            events = set_ak_column(events, f"{self.cls_name}.pred_fold_{i}_{proc_name}__{self.model_name}", extend(fold_op, mask))
             # get the inp of the Deep Sets for each test fold
             # filler = np.full_like(inputs[0], self.masking_val)
             # padded_fold_inp = np.concatenate((inputs[0].numpy()[mask_weights], filler[~mask_weights]), axis=0)
@@ -1017,12 +1029,11 @@ class SimpleDNN(MLModel):
             raise Exception("Number of output nodes should be equal to number of processes")
 
         for i, proc in enumerate(self.processes):
-            events = set_ak_column(events, f"mlscore.{proc}", outputs[:, i])
-
-        events = set_ak_column(events, f"{self.cls_name}.predictions_{proc_name}__{self.model_name}", test["prediction"])
+            events = set_ak_column(events, f"mlscore.{proc}", extend(outputs[:, i], mask))
+        events = set_ak_column(events, f"{self.cls_name}.predictions_{proc_name}__{self.model_name}", extend(test["prediction"], mask))
         pred_target = np.concatenate((test["prediction"], target), axis=1)
-        events = set_ak_column(events, f"{self.cls_name}.pred_target_{proc_name}__{self.model_name}", pred_target)
-        events = set_ak_column(events, f"{self.cls_name}.target_label_{proc_name}__{self.model_name}", np.full(target.shape[0], target_idx))
-        events = set_ak_column(events, f"{self.cls_name}.events_weights_{proc_name}__{self.model_name}", weights)
+        events = set_ak_column(events, f"{self.cls_name}.pred_target_{proc_name}__{self.model_name}", extend(pred_target, mask))
+        events = set_ak_column(events, f"{self.cls_name}.target_label_{proc_name}__{self.model_name}", extend(np.full(target.shape[0], target_idx), mask))
+        events = set_ak_column(events, f"{self.cls_name}.events_weights_{proc_name}__{self.model_name}", extend(weights, mask))
 
         return events
