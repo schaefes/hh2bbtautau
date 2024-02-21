@@ -225,6 +225,17 @@ def reshape_norm_inputs(events_dict, norm_features, input_features, n_op_nodes, 
     std_baseline_pairs = np.concatenate((np.tile(std_jets, baseline_jets), np.tile(std_pairs, baseline_pairs), std_inputs2))
     events_dict["inputs_baseline_pairs"] = tf.convert_to_tensor(baseline_inp_pairs, dtype=tf_dtype)
 
+    # scale the weights
+    if "weights" in events_dict.keys():
+        events_dict["weights"] = np.where(events_dict["weights"] < 0, 0., events_dict["weights"])
+        N_events_procs = np.sum(events_dict["target"], axis=0)
+        weights_scaler = np.mean(N_events_procs)
+        for i in range(n_op_nodes):
+            proc_mask = np.where(events_dict["target"][:, i] == 1, True, False)
+            proc_weights_sum = np.sum(events_dict["weights"][proc_mask])
+            events_dict["weights"] = np.where(proc_mask, events_dict["weights"] / proc_weights_sum, events_dict["weights"])
+        events_dict["weights"] *= weights_scaler
+
     """" Save the mean and std arrays in seperate dict and later use only the means and stds
     dict that was based of of the train input, pass that to the NN for the normalization layer"""
     norm_dict = {}
@@ -465,9 +476,10 @@ class SimpleDNN(MLModel):
                 process_name = "dy" if "dy" in process_name and "dy" in self.processes else process_name
                 self.ml_process_weights[process_name] += N_events
             max_events_of_proc = np.max(list(self.ml_process_weights.values()))
-            for key_proc, value_proc in self.ml_process_weights.items():
-                self.ml_process_weights[key_proc] = max_events_of_proc / value_proc
-                self.ml_process_weights[key_proc] *= self.ml_process_factors[key_proc]
+            # for key_proc, value_proc in self.ml_process_weights.items():
+            #     self.ml_process_weights[key_proc] = max_events_of_proc / value_proc
+            #     self.ml_process_weights[key_proc] *= self.ml_process_factors[key_proc]
+            self.ml_process_weights = self.ml_process_factors.copy()
 
         # max_events_per_fold = int(self.max_events / (self.folds - 1))
         self.process_insts = []
@@ -482,7 +494,7 @@ class SimpleDNN(MLModel):
         process_insts = [self.config_inst.get_process(proc) for proc in self.processes]
         N_events_processes = np.array(len(self.processes) * [0])
         ml_process_weights = np.array(len(self.processes) * [0])
-        sum_eventweights_processes = np.array(len(self.processes) * [0])
+        sum_eventweights_processes = np.array(len(self.processes) * [0.])
         dataset_proc_idx = {}  # bookkeeping which process each dataset belongs to
 
         #
@@ -496,12 +508,22 @@ class SimpleDNN(MLModel):
                 raise Exception("only 1 process inst is expected for each dataset")
 
             # TODO: use stats here instead
-            N_events = sum([len(ak.from_parquet(inp["mlevents"].fn)) for inp in files])
+            # N_events = np.sum([len(ak.from_parquet(inp["mlevents"].fn)) for inp in files])
             # NOTE: this only works as long as each dataset only contains one process
-            sum_eventweights = sum([
-                ak.sum(ak.from_parquet(inp["mlevents"].fn).normalization_weight)
-                for inp in files],
-            )
+            # sum_eventweights = np.sum([
+            #     np.sum(ak.from_parquet(inp["mlevents"].fn).normalization_weight)
+            #     for inp in files],
+            # )
+
+            sum_eventweights = 0
+            N_events = 0
+            for inp in files:
+                f = ak.from_parquet(inp["mlevents"].fn)
+                n_jets = f.CustomVBFMaskJets2_njets
+                m = (n_jets >= self.jet_num_lower) & (n_jets < self.jet_num_upper)
+                sum_eventweights += np.sum(np.clip(f.normalization_weight[m], 0, np.inf))
+                N_events += np.sum(m)
+
             for i, proc in enumerate(process_insts):
                 ml_process_weights[i] = self.ml_process_weights[proc.name]
                 leaf_procs = [p for p, _, _ in self.config_inst.get_process(proc).walk_processes(include_self=True)]
@@ -519,7 +541,7 @@ class SimpleDNN(MLModel):
 
         # Number to scale weights such that the largest weights are at the order of 1
         # (only implemented for eqweight = True)
-        weights_scaler = min(N_events_processes / ml_process_weights)
+        weights_scaler = np.max(N_events_processes)#min(N_events_processes / ml_process_weights)
 
         #
         # set inputs, weights and targets for each datset and fold
@@ -546,9 +568,11 @@ class SimpleDNN(MLModel):
                 f"dataset: {dataset}, \n  #Events: {N_events_proc}, "
                 f"\n  Sum Eventweights: {sum_eventweights_proc}",
             )
+
             sum_nnweights = 0
 
             self.target_dict[f'{proc_name}'] = this_proc_idx
+
             for inp in files:
                 # make a cut on events based on a min number of jets required per event
                 # get the string name of njets for the given jet collection
@@ -557,20 +581,19 @@ class SimpleDNN(MLModel):
                 events_n_jets = getattr(events, njets_field)
                 mask = (events_n_jets >= self.jet_num_lower) & (events_n_jets < self.jet_num_upper)
                 events = events[mask]
-                weights = events.normalization_weight
+                weights = np.clip(events.normalization_weight, 0, np.inf)
                 if self.eqweight:
                     weights = weights * weights_scaler / sum_eventweights_proc
-                    custom_procweight = self.ml_process_weights[proc_name]
-                    weights = weights * custom_procweight
-
+                    # custom_procweight = self.ml_process_weights[proc_name]
+                    # weights = weights * custom_procweight
                 weights = ak.to_numpy(weights)
 
                 if np.any(~np.isfinite(weights)):
                     raise Exception(f"Infinite values found in weights from dataset {dataset}")
 
-                sum_nnweights += sum(weights)
+                sum_nnweights += np.sum(weights)
                 sum_nnweights_processes.setdefault(proc_name, 0)
-                sum_nnweights_processes[proc_name] += sum(weights)
+                sum_nnweights_processes[proc_name] += np.sum(weights)
                 # remove columns not used in training
                 projection_phi = events[self.projection_phi[0]]
                 events_pairs = events[self.pair_vectors]
@@ -649,7 +672,6 @@ class SimpleDNN(MLModel):
         # reshape and normalize inputs
         train, train_norm = reshape_norm_inputs(train, self.norm_features, self.input_features, self.n_output_nodes, self.baseline_jets, self.baseline_pairs, self.masking_val, self.baseline_padding)
         validation, _ = reshape_norm_inputs(validation, self.norm_features, self.input_features, self.n_output_nodes, self.baseline_jets, self.baseline_pairs, self.masking_val, self.baseline_padding)
-
         return train, train_norm, validation
 
     def instant_evaluate(
@@ -794,35 +816,53 @@ class SimpleDNN(MLModel):
 
         if self.model_type == "baseline":
             model = BaseLineFF(feedforward_config)
-            tf_train = [train['inputs_baseline'], train['target']]
-            tf_validation = [validation['inputs_baseline'], validation['target']]
+            tf_train = (train['inputs_baseline'], train['target'], train["weights"])
+            tf_validation = (validation['inputs_baseline'], validation['target'], validation["weights"])
         elif self.model_type == "baseline_pairs":
             model = BaseLineFFPairs(feedforward_pairs_config)
-            tf_train = [train['inputs_baseline_pairs'], train['target']]
-            tf_validation = [validation['inputs_baseline_pairs'], validation['target']]
+            tf_train = (train['inputs_baseline_pairs'], train['target'], train["weights"])
+            tf_validation = (validation['inputs_baseline_pairs'], validation['target'], validation["weights"])
         elif self.model_type == "DeepSets":
             model = CombinedDeepSetNetwork(deepset_config_jets, feedforward_DS_config)
-            tf_train = [[train['inputs'], train['inputs2']], train['target']]
-            tf_validation = [[validation['inputs'], validation['inputs2']], validation['target']]
+            tf_train = ([train['inputs'], train['inputs2']], train['target'], train["weights"])
+            tf_validation = ([validation['inputs'], validation['inputs2']], validation['target'], validation["weights"])
         elif self.model_type == "DeepSetsPS":
             model = CombinedDeepSetPairsSequentialNetwork(deepset_config_sequential, feedforward_DS_config)
-            tf_train = [[[train['inputs'], train['pairs_inp']], train['inputs2']], train['target']]
-            tf_validation = [[[validation['inputs'], validation['pairs_inp']], validation['inputs2']], validation['target']]
+            tf_train = ([[train['inputs'], train['pairs_inp']], train['inputs2']], train['target'], train["weights"])
+            tf_validation = ([[validation['inputs'], validation['pairs_inp']], validation['inputs2']], validation['target'], validation["weights"])
         elif self.model_type == "DeepSetsPP":
             deepset_config_jets["inp_type"] = "Jets"
             deepset_config_pairs["inp_type"] = "Pairs"
             model = CombinedDeepSetPairsParallelNetwork(deepset_config_jets, deepset_config_pairs, feedforward_DS_config)
-            tf_train = [[train['inputs'], train['pairs_inp'], train['inputs2']], train['target']]
-            tf_validation = [[validation['inputs'], validation['pairs_inp'], validation['inputs2']], validation['target']]
+            tf_train = ([train['inputs'], train['pairs_inp'], train['inputs2']], train['target'], train["weights"])
+            tf_validation = ([validation['inputs'], validation['pairs_inp'], validation['inputs2']], validation['target'], validation["weights"])
 
         optimizer = keras.optimizers.Adam(
             learning_rate=self.learningrate, beta_1=0.9, beta_2=0.999,
             epsilon=1e-6, amsgrad=False,
         )
+        def custom_loss(y_true, y_pred, weights):
+            fn = keras.metrics.CategoricalCrossentropy(
+                name="categorical_crossentropy",
+                dtype=None,
+                from_logits=False,
+                label_smoothing=0,
+                axis=-1,
+            )
+            result = fn(y_true, y_pred)
+            return result
+
         model.compile(
             loss="categorical_crossentropy",
             optimizer=optimizer,
-            weighted_metrics=["categorical_accuracy"],
+            weighted_metrics=[
+                "categorical_crossentropy",
+                "categorical_accuracy",
+            ],
+            metrics=[
+                "categorical_crossentropy",
+                "categorical_accuracy",
+            ],
             run_eagerly=False,
         )
 
@@ -855,14 +895,14 @@ class SimpleDNN(MLModel):
 
         # transform the the keys of self.ml_process_weights to their respective idx
         # so that the dict is understood by the model
-        class_weights_dict = {}
-        for proc_name, target in self.target_dict.items():
-            class_weights_dict[target] = self.ml_process_weights[proc_name]
+        # class_weights_dict = {}
+        # for proc_name, target in self.target_dict.items():
+        #     class_weights_dict[target] = self.ml_process_weights[proc_name]
         fit_kwargs = {
             "epochs": self.epochs,
             "callbacks": [early_stopping, reduceLR],
             "verbose": 2,
-            "class_weight": class_weights_dict,
+            # "class_weight": class_weights_dict,
         }
 
         # train the model
@@ -871,6 +911,7 @@ class SimpleDNN(MLModel):
 
         model.fit(
             tf_train[0], tf_train[1],
+            sample_weight=tf_train[2],
             validation_data=tf_validation,
             batch_size=self.batchsize,
             **fit_kwargs,
@@ -1027,7 +1068,7 @@ class SimpleDNN(MLModel):
 
         if len(outputs[0]) != len(self.processes):
             raise Exception("Number of output nodes should be equal to number of processes")
-
+        from IPython import embed; embed()
         for i, proc in enumerate(self.processes):
             events = set_ak_column(events, f"mlscore.{proc}", extend(outputs[:, i], mask))
         events = set_ak_column(events, f"{self.cls_name}.predictions_{proc_name}__{self.model_name}", extend(test["prediction"], mask))
