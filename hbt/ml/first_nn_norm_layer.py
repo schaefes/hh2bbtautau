@@ -227,7 +227,6 @@ def reshape_norm_inputs(events_dict, norm_features, input_features, n_op_nodes, 
 
     # scale the weights
     if "weights" in events_dict.keys():
-        events_dict["weights"] = np.where(events_dict["weights"] < 0, 0., events_dict["weights"])
         N_events_procs = np.sum(events_dict["target"], axis=0)
         weights_scaler = np.mean(N_events_procs)
         for i in range(n_op_nodes):
@@ -582,10 +581,10 @@ class SimpleDNN(MLModel):
                 mask = (events_n_jets >= self.jet_num_lower) & (events_n_jets < self.jet_num_upper)
                 events = events[mask]
                 weights = np.clip(events.normalization_weight, 0, np.inf)
-                if self.eqweight:
-                    weights = weights * weights_scaler / sum_eventweights_proc
-                    # custom_procweight = self.ml_process_weights[proc_name]
-                    # weights = weights * custom_procweight
+                # if self.eqweight:
+                #   weights = weights * weights_scaler / sum_eventweights_proc
+                #   custom_procweight = self.ml_process_weights[proc_name]
+                #   weights = weights * custom_procweight
                 weights = ak.to_numpy(weights)
 
                 if np.any(~np.isfinite(weights)):
@@ -1068,7 +1067,6 @@ class SimpleDNN(MLModel):
 
         if len(outputs[0]) != len(self.processes):
             raise Exception("Number of output nodes should be equal to number of processes")
-        from IPython import embed; embed()
         for i, proc in enumerate(self.processes):
             events = set_ak_column(events, f"mlscore.{proc}", extend(outputs[:, i], mask))
         events = set_ak_column(events, f"{self.cls_name}.predictions_{proc_name}__{self.model_name}", extend(test["prediction"], mask))
