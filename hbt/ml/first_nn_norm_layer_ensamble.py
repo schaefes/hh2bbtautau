@@ -667,6 +667,7 @@ class SimpleDNN(MLModel):
         for i, seed in enumerate(self.random_seeds):
             np.random.seed(seed)
             tf.random.set_seed(seed)
+            keras.utils.set_random_seed(seed)
             shuffle_indices = np.array(range(len(DNN_inputs["weights"])))
             np.random.shuffle(shuffle_indices)
             print('SHUFFLE:', shuffle_indices)
@@ -681,6 +682,7 @@ class SimpleDNN(MLModel):
                 train[k] = DNN_inputs[k][N_validation_events:]
             # reshape and normalize inputs
             train, train_norm = reshape_norm_inputs(train, self.norm_features, self.input_features, self.n_output_nodes, self.baseline_jets, self.baseline_pairs, self.masking_val, self.baseline_padding)
+            train['seed'] = seed
             validation, _ = reshape_norm_inputs(validation, self.norm_features, self.input_features, self.n_output_nodes, self.baseline_jets, self.baseline_pairs, self.masking_val, self.baseline_padding)
             returns.append([train, train_norm, validation])
 
@@ -797,6 +799,12 @@ class SimpleDNN(MLModel):
         i = 0
         for train_set in train_sets:
             train, train_norm, validation = train_set
+            seed = train['seed']
+            np.random.seed(seed)
+            tf.random.set_seed(seed)
+            keras.utils.set_random_seed(seed)
+            del train['seed']
+            from IPython import embed; embed()
             # configureations for Deep Sets and FF Network
             dict_vals = tf.stack(list(self.pairs_dict_tf.values()))
             deepset_config_jets = {'nodes': self.nodes_deepSets, 'activations': self.activation_func_deepSets,
