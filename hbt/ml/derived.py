@@ -5,7 +5,7 @@ ML models derived from the *SimpleDNN* class
 """
 
 
-from hbt.ml.first_nn_norm_layer import SimpleDNN
+from hbt.ml.first_nn_norm_layer_ensamble import SimpleDNN
 from columnflow.util import maybe_import
 
 math = maybe_import("math")
