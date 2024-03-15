@@ -411,7 +411,7 @@ class SimpleDNN(MLModel):
         ops = []
         for seed in self.random_seeds:
             ops.append(task.target(f"mlmodel_f{task.branch}of{self.folds}_{self.model_name}_{seed}", dir=True))
-        return task.target(f"mlmodel_f{task.branch}of{self.folds}_{self.model_name}_1", dir=True), task.target(f"mlmodel_f{task.branch}of{self.folds}_{self.model_name}_2", dir=True)
+        return ops
 
     def open_model(self, target: law.LocalDirectoryTarget) -> tf.keras.models.Model:
         # return target.load(formatter="keras_model")
