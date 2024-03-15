@@ -148,7 +148,7 @@ default_cls_dict = {
     "activation": "relu",  # Options: elu, relu, prelu, selu, tanh, softmax
     "learningrate": 0.01,
     "batchsize": 256,
-    "epochs": 150,
+    "epochs": 3,
     "eqweight": True,
     "dropout": 0.50,
     "l2": 1e-6,
@@ -166,7 +166,7 @@ default_cls_dict = {
     "norm_features": norm_features,
     "quantity_weighting": True,
     "jet_num_lower": 1, #incl
-    "jet_num_upper": 15, #excl
+    "jet_num_upper": 20, #excl
     "baseline_jets": baseline_jets,
     "baseline_pairs": baseline_pairs,
     "jet_collection": jet_collection,
@@ -180,6 +180,7 @@ default_cls_dict = {
     "event_to_jet": False,
     "baseline_padding": baseline_padding,
     "pairs_padding": four_vector_padding,
+    "random_seeds": [1201, 1337, 1598, 1730, 1922],
 }
 
 
@@ -196,7 +197,7 @@ nodes_ff_ds = [256, 256, 256, 256, 256, 256]
 nodes_baseline = [128, 256, 256, 256, 256, 256, 256]
 model_name = f"{len(processes)}classes_{model_type}"
 # used to add short description in the model name
-model_name_desc = ""
+model_name_desc = "ensamble_test"
 
 cls_dict = default_cls_dict
 cls_dict["model_type"] = model_type
