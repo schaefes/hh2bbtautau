@@ -11,8 +11,8 @@ action() {
     # set variables and source the generic venv setup
     export CF_SANDBOX_FILE="${CF_SANDBOX_FILE:-${this_file}}"
     export CF_VENV_NAME="$( basename "${this_file%.sh}" )"
-    export CF_VENV_REQUIREMENTS="${this_dir}/ml_tf.txt,${this_dir}/dev.txt"
+    export CF_VENV_REQUIREMENTS="${this_dir}/ml_tf.txt,${CF_BASE}/sandboxes/dev.txt"
 
-    source "${this_dir}/_setup_venv.sh" "$@"
+    source "${CF_BASE}/sandboxes/_setup_venv.sh" "$@"
 }
 action "$@"
