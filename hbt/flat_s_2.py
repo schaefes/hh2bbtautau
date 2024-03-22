@@ -8,7 +8,7 @@ mplhep = maybe_import("mplhep")
 hist = maybe_import("hist")
 
 # flat s binning that requires at least N from each individual BG per bin
-def flat_s_edges_2(histograms, n_bins, N_bg):
+def flat_s_edges_2(histograms, n_bins, n_bg_req):
     proc = list(histograms.keys())[0].split('ml_')[-1]
     h = histograms[f"cat_incl_ml_{proc}"]
     backgrounds = [b for b in h.keys() if b not in proc]
@@ -30,7 +30,6 @@ def flat_s_edges_2(histograms, n_bins, N_bg):
     n_bg = bg_counts**2 / bg_variances
     n_bg = np.nan_to_num(n_bg)
 
-    n_bg_req = N_bg
     s = np.sum(s_counts) / n_bins
     idx = len(s_counts + 1)
 
@@ -64,6 +63,7 @@ def flat_s_edges_2(histograms, n_bins, N_bg):
     for i, (lower, upper) in enumerate(zip(new_edges_idx[:-1], new_edges_idx[1:])):
         new_s_count[i] = np.sum(s_counts[lower:upper])
         new_n_bg[:, i] = np.sum(n_bg[:, lower:upper], axis=1)
+    print(new_n_bg)
 
     if np.min(new_n_bg) < n_bg_req:
         raise Exception(f"Insufficient Background events in Bin {np.argmin(new_n_bg) + 1}")
