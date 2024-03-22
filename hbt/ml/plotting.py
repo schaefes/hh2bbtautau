@@ -45,7 +45,7 @@ def correlation_matrix(topDS, inp_full, topDS_labels, event_labels, file_name, o
         for j in range(len(event_labels)):
             plt.annotate(str(corrcoef[i][j]), xy=(j, i), ha='center', va='center', color='black',
                         fontsize=17)
-    mplhep.cms.label(llabel="Work in progress", data=False, loc=0)
+    mplhep.cms.label(llabel="Private Work (CMS Simulation)", data=False, loc=0)
     output.child(f"Correlation_Coefficients{file_name}.pdf", type="f").dump(fig2, formatter="mpl")
 
     # Scatter Plot for the leading correlation value
@@ -59,7 +59,7 @@ def correlation_matrix(topDS, inp_full, topDS_labels, event_labels, file_name, o
     plt.ylabel(f"{topDS_labels[leading[0]]} (Y)")
     title_str = "Scatter Correlation " + r"$\rho_{X,Y}=$" + f"{corrcoef.max()}"
     plt.title(title_str, loc='left')
-    mplhep.cms.label(llabel="Work in progress", data=False, loc=2)
+    mplhep.cms.label(llabel="Private Work (CMS Simulation)", data=False, loc=2)
     output.child(f"Scatter_Correlation{file_name}.pdf", type="f").dump(fig3, formatter="mpl")
 
 
@@ -77,7 +77,7 @@ def plot_loss(history, output, classification="categorical") -> None:
         "xlabel": "Epoch",
     })
     ax.legend(["train", "validation"], loc="best")
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False)
+    mplhep.cms.label(ax=ax, llabel="Private Work (CMS Simulation)", data=False)
 
     output.child("Loss.pdf", type="f").dump(fig, formatter="mpl")
 
@@ -97,7 +97,7 @@ def plot_accuracy(history, output, classification="categorical") -> None:
         "xlabel": "Epoch",
     })
     ax.legend(["train", "validation"], loc="best")
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False)
+    mplhep.cms.label(ax=ax, llabel="Private Work (CMS Simulation)", data=False)
 
     output.child("Accuracy.pdf", type="f").dump(fig, formatter="mpl")
 
@@ -135,7 +135,7 @@ def plot_confusion(
     matrix_display.im_.set_clim(0, 1)
 
     # ax.set_title(f"{input_type} set, rows normalized", fontsize=32, loc="left")
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=0)
+    mplhep.cms.label(ax=ax, llabel="Private Work (CMS Simulation)", data=False, loc=0)
     output.child(f"Confusion_{input_type}_{sorting}.pdf", type="f").dump(fig, formatter="mpl")
 
 
@@ -183,7 +183,7 @@ def plot_roc_ovr(
         [f"Signal: {labels[i]} (AUC: {auc_score:.4f})" for i, auc_score in enumerate(auc_scores)],
         loc="lower right",
     )
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
+    mplhep.cms.label(ax=ax, llabel="Private Work (CMS Simulation)", data=False, loc=2)
 
     output.child(f"ROC_ovr_{input_type}.pdf", type="f").dump(fig, formatter="mpl")
 
@@ -228,7 +228,7 @@ def plot_roc_ovr_binary(
         [f"(AUC: {auc_scores[0]:.4f})"],
         loc="best",
     )
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
+    mplhep.cms.label(ax=ax, llabel="Private Work (CMS Simulation)", data=False, loc=2)
 
     output.child(f"ROC_ovr_{input_type}.pdf", type="f").dump(fig, formatter="mpl")
 
@@ -302,7 +302,7 @@ def plot_output_nodes(
         scale = h[{"type": "train"}].sum().value / h[{"type": "validation"}].sum().value
         (h[{"type": "validation"}] * scale).plot1d(**plot_kwargs, linestyle="dotted")
 
-        mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=0)
+        mplhep.cms.label(ax=ax, llabel="Private Work (CMS Simulation)", data=False, loc=0)
         output.child(f"Node_{process_insts[i].name}_{sorting}.pdf", type="f").dump(fig, formatter="mpl")
 
 
@@ -351,7 +351,7 @@ def plot_significance(
         ax.set_xlabel(f"Significance Node {process_insts[i].label}")
         ax.legend(frameon=True)
 
-        mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=0)
+        mplhep.cms.label(ax=ax, llabel="Private Work (CMS Simulation)", data=False, loc=0)
         output.child(f"Significance_Node_{process_insts[i].name}_{sorting}.pdf", type="f").dump(fig, formatter="mpl")
 
 
@@ -866,5 +866,5 @@ def check_distribution(
     ax.set_xlabel(f"{feature_name}")
     ax.set_title(f"{input_set} set")
 
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=0)
+    mplhep.cms.label(ax=ax, llabel="Private Work (CMS Simulation)", data=False, loc=0)
     output.child(f"distribution_{feature_name}_{input_set}.pdf", type="f").dump(fig, formatter="mpl")
