@@ -692,7 +692,7 @@ def add_config(
             "CustomVBFMaskJets2.btagDeepFlavCvL", "CustomVBFMaskJets2.btagDeepFlavQG",
             "CustomVBFMaskJets2.nConstituents", "MET.*", "CustomVBFMaskJets2.btagDeepCvB",
             "CustomVBFMaskJets2.btagDeepFlavCvB", "CustomVBFMaskJets2.btagDeepCvL",
-            "CustomVBFMaskJets2.btagDeepB", "mlscore.*",
+            "CustomVBFMaskJets2.btagDeepB", "CustomVBFMaskJets2.E", "mlscore.*",
             ColumnCollection.ALL_FROM_SELECTOR,
         },
         "cf.MergeSelectionMasks": {

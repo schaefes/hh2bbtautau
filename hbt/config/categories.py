@@ -27,6 +27,9 @@ def add_categories(config: od.Config) -> None:
         id=1,
         selection="cat_incl",
         label="inclusive",
+        aux={
+            "root_cats": {"incl": "incl"},
+        },
     )
     add_category(
         config,
