@@ -375,7 +375,7 @@ class SimpleDNN(MLModel):
         return all_reqs
 
     def sandbox(self, task: law.Task) -> str:
-        return dev_sandbox("bash::$HBT_BASE/sandboxes/venv_ml_tf_dev.sh")
+        return dev_sandbox("bash::$HBT_BASE/sandboxes/venv_ml_tf.sh")
 
     def datasets(self, config_inst: od.Config) -> set[od.Dataset]:
         return {config_inst.get_dataset(dataset_name) for dataset_name in self.dataset_names}
@@ -804,7 +804,6 @@ class SimpleDNN(MLModel):
             tf.random.set_seed(seed)
             keras.utils.set_random_seed(seed)
             del train['seed']
-            from IPython import embed; embed()
             # configureations for Deep Sets and FF Network
             dict_vals = tf.stack(list(self.pairs_dict_tf.values()))
             deepset_config_jets = {'nodes': self.nodes_deepSets, 'activations': self.activation_func_deepSets,
@@ -975,6 +974,7 @@ class SimpleDNN(MLModel):
             max_jets = model0.signatures["serving_default"].structured_input_signature[1]['input_1'].shape[1]
         # create a copy of the inputs to use for evaluation
         inputs = ak.copy(events)
+        n_events = len(events)
 
         # generate mask based on the jet num requirements
         njets_field = [i for i in self.input_features[1] if 'njets' in i][0]
@@ -1029,7 +1029,7 @@ class SimpleDNN(MLModel):
         # do prediction for all models and all inputs
         predictions = []
         for ensamble in models:
-            ensamble_preds = np.zeros((inputs[0].shape[0], len(self.random_seeds), len(self.processes)))
+            ensamble_preds = np.zeros((n_events, len(self.random_seeds), len(self.processes)))
             for i, model in enumerate(ensamble):
                 pred = model.predict(inputs)
                 pred = ak.from_numpy(pred)
