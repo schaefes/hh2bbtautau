@@ -139,7 +139,7 @@ for i in range(2, 11, 1):
 # baseline_jets: max number of jets considered
 # model_type: baseline-> baselie model used else deepsets
 # quantity_weighting: weighting of the processes accroding to the amount of samples for each samples
-baseline_jets = 4
+baseline_jets = 6
 baseline_pairs = int(math.factorial(baseline_jets) / (2 * math.factorial(baseline_jets - 2)))
 default_cls_dict = {
     "folds": 10,
@@ -148,7 +148,7 @@ default_cls_dict = {
     "activation": "relu",  # Options: elu, relu, prelu, selu, tanh, softmax
     "learningrate": 0.01,
     "batchsize": 256,
-    "epochs": 3,
+    "epochs": 150,
     "eqweight": True,
     "dropout": 0.50,
     "l2": 1e-6,
@@ -187,7 +187,7 @@ default_cls_dict = {
 # test model settings
 # choose str "baseline", "baseline_pairs", "DeepSets", "DeepSetsPP", "DeepSetsPS"
 # chose what kind of sequential DS mode is used: "sum", "concat", "two_inp"
-model_type = "DeepSets"
+model_type = "baseline"
 sequential_mode = "sum"
 
 # NN architecture
@@ -197,7 +197,7 @@ nodes_ff_ds = [256, 256, 256, 256, 256, 256]
 nodes_baseline = [128, 256, 256, 256, 256, 256, 256]
 model_name = f"{len(processes)}classes_{model_type}"
 # used to add short description in the model name
-model_name_desc = "ensamble_test"
+model_name_desc = "ensambles_5_6jets"
 
 cls_dict = default_cls_dict
 cls_dict["model_type"] = model_type
@@ -242,5 +242,69 @@ elif model_type == "DeepSetsPS" and sequential_mode == "two_inp":
     cls_dict["model_name"] = model_name
     deepsetsPS_two_inp_4classes = SimpleDNN.derive(model_name, cls_dict=cls_dict)
 
+model_type = "DeepSets"
+model_name = f"{len(processes)}classes_{model_type}"
+model_name_desc = "no_neg_weights"
+model_name = "_".join([model_name, model_name_desc]) if model_name_desc else model_name
+cls_dict["model_name"] = model_name
+deepsets_4classes_2 = SimpleDNN.derive(model_name, cls_dict=cls_dict)
+
+model_type = "baseline"
+model_name = f"{len(processes)}classes_{model_type}"
+model_name_desc = "no_neg_weights"
+model_name = "_".join([model_name, model_name_desc]) if model_name_desc else model_name
+cls_dict["model_name"] = model_name
+baseline_4classes_2 = SimpleDNN.derive(model_name, cls_dict=cls_dict)
+
+
+model_type = "baseline"
+model_name = f"{len(processes)}classes_condor_test_{model_type}"
+default_cls_dict = {
+    "folds": 2,
+    # "max_events": 10**6,  # TODO
+    "layers": [512, 512, 512],
+    "activation": "relu",  # Options: elu, relu, prelu, selu, tanh, softmax
+    "learningrate": 0.01,
+    "batchsize": 256,
+    "epochs": 150,
+    "eqweight": True,
+    "dropout": 0.50,
+    "l2": 1e-6,
+    "processes": processes,
+    "ml_process_weights": ml_process_weights,
+    "dataset_names": dataset_names,
+    "input_features": input_features,
+    "store_name": "inputs1",
+    "n_features": len(input_features[0]),
+    "n_output_nodes": len(processes),
+    "batch_norm_deepSets": True,
+    "batch_norm_ff": True,
+    "aggregations": ["Sum", "Max", "Mean"],
+    "aggregations_pairs": ["Sum", "Max", "Mean"],
+    "norm_features": norm_features,
+    "quantity_weighting": True,
+    "jet_num_lower": 1, #incl
+    "jet_num_upper": 20, #excl
+    "baseline_jets": baseline_jets,
+    "baseline_pairs": baseline_pairs,
+    "jet_collection": jet_collection,
+    "masking_val": -5,
+    "projection_phi": projection_phi,
+    "resorting_feature": f"{jet_collection}_bFlavtag",
+    "train_sorting": f"{jet_collection}_pt",
+    "pair_vectors": four_vector,
+    "pairs_dict_pad": pairs_dict_pad,
+    "latex_dict": latex_dict,
+    "event_to_jet": False,
+    "baseline_padding": baseline_padding,
+    "pairs_padding": four_vector_padding,
+    "random_seeds": [1201, 1337, 1598, 1730, 1922],
+}
+
+
+if model_type == "baseline":
+    model_name = "_".join([model_name, model_name_desc]) if model_name_desc else model_name
+    cls_dict["model_name"] = model_name
+    baseline_4classes_condortest = SimpleDNN.derive(model_name, cls_dict=cls_dict)
 # law run cf.PlotMLResults --plot-function roc --general-settings "evaluation_type=ovr" --ml-model test --datasets graviton_hh_ggf_bbtautau_m400_madgraph,graviton_hh_vbf_bbtautau_m400_madgraph,tt_dl_powheg,tt_sl_powheg,dy_lep_pt50To100_amcatnlo,dy_lep_pt100To250_amcatnlo,dy_lep_pt250To400_amcatnlo,dy_lep_pt400To650_amcatnlo,dy_lep_pt650_amcatnlo --version PairsML
 # law run cf.MLTraining --version PairsML --ml-model test --config run2_2017_nano_uhh_v11_limited --cf.MLTraining-workflow htcondor --cf.MLTraining-htcondor-memory 20GB
