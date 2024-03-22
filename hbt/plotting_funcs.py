@@ -38,7 +38,7 @@ def plot_confusion(inputs, labels, save_path, input_set):
     matrix_display.im_.set_clim(0, 1)
 
     ax.set_title(f"{input_set}, rows normalized", fontsize=32, loc="left")
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
+    mplhep.cms.label(ax=ax, llabel="Private work", data=False, loc=2)
     file_path = f"{save_path}/confusion_test_set.pdf"
     os.remove(file_path) if os.path.exists(file_path) else None
     plt.savefig(file_path)
@@ -130,7 +130,7 @@ def plot_roc_ovr(inputs, labels, save_path, input_set, std):
         [f"Signal: {labels[i]} (AUC: {auc_score:.4f} ± {std[i]})" for i, auc_score in enumerate(auc_scores)],
         loc="best",
     )
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
+    mplhep.cms.label(ax=ax, llabel="Private work", data=False, loc=2)
     file_path = f"{save_path}/ROC_test_set.pdf"
     os.remove(file_path) if os.path.exists(file_path) else None
     plt.savefig(file_path)
@@ -176,7 +176,7 @@ def plot_roc_ovr(inputs, labels, save_path, input_set, std):
 #         [f"(AUC: {auc_scores[0]:.4f})"],
 #         loc="best",
 #     )
-#     mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=2)
+#     mplhep.cms.label(ax=ax, llabel="Private work", data=False, loc=2)
 
 #     output.child(f"ROC_ovr_{input_type}_{sorting}.pdf", type="f").dump(fig, formatter="mpl")
 
@@ -196,7 +196,6 @@ def plot_output_nodes(inputs, processes, labels, save_path, inputs_set):
     colors = ['red', 'blue', 'green', 'orange', 'cyan', 'purple', 'yellow', 'magenta']
     # labels = [f"$HH{label.split('HH')[-1]}" for label in labels]
     labels = ["$HH_{" + label.split("HH_{")[1].split("}")[0] + "}$" if "HH" in label else label for label in labels]
-
     for i, proc in enumerate(processes):
         fig, ax = plt.subplots()
 
@@ -234,12 +233,12 @@ def plot_output_nodes(inputs, processes, labels, save_path, inputs_set):
 
         ax.set(**{
             "ylabel": "Entries",
-            "ylim": (0.00001, ax.get_ylim()[1]),
+            "ylim": (0, 20000),
             "xlim": (0, 1),
             # "yscale": 'log',
         })
 
-        mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=0)
+        mplhep.cms.label(ax=ax, llabel="Private work", data=False, loc=0)
         file_path = f"{save_path}/output_none_{proc}.pdf"
         os.remove(file_path) if os.path.exists(file_path) else None
         plt.savefig(file_path)
@@ -279,7 +278,7 @@ def plot_significance(inputs, processes, labels, save_path, inputs_set):
         ax.set_xlabel(f"Significance Node {labels[i]}")
         ax.legend(frameon=True, title=f"{inputs_set}")
 
-        mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=0)
+        mplhep.cms.label(ax=ax, llabel="Private work", data=False, loc=0)
         file_path = f"{save_path}/significance_{proc}.pdf"
         os.remove(file_path) if os.path.exists(file_path) else None
         plt.savefig(file_path)
@@ -297,7 +296,7 @@ def check_distribution(save_path, input, feature, masking_val, fold_idx):
     ax.hist(input_feature, bins=binning)
     ax.set_xlabel(f"{feature}, Test Set Fold {fold_idx}")
 
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=0)
+    mplhep.cms.label(ax=ax, llabel="Private work", data=False, loc=0)
     file_path = f"{save_path}/input_distributon_{feature}_fold{fold_idx}.pdf"
     os.remove(file_path) if os.path.exists(file_path) else None
     plt.savefig(file_path)
@@ -316,6 +315,7 @@ def check_distribution(save_path, input, feature, masking_val, fold_idx):
 
 
 def event_weights(targets, weights_all):
+    from IPython import embed; embed()
     sum_eventweights_proc = np.zeros(targets.shape[1])
     N_events_processes = np.sum(targets, axis=0)
     ml_proc_weights = np.max(N_events_processes) / N_events_processes
@@ -329,6 +329,18 @@ def event_weights(targets, weights_all):
         weights_all = np.where(mask, weights_all * scaling_factor[i], weights_all)
 
     return weights_all
+
+
+def norm_weights(targets, weights):
+    weights_scaler = np.mean(np.sum(targets, axis=0))
+    weights = np.where(weights < 0, 0, weights)
+    for i in range(targets.shape[1]):
+        mask = np.where(targets[:, i] == 1, True, False)
+        weights_sum = np.sum(weights[mask])
+        weights = np.where(mask, weights / weights_sum, weights)
+    normalized_weights = weights * weights_scaler
+
+    return normalized_weights
 
 
 def plot_confusion_std(confusion, std, labels, save_path):
@@ -367,7 +379,7 @@ def plot_confusion_std(confusion, std, labels, save_path):
     ax.figure.colorbar(ax.collections[0])
 
     # save the confusion matrix
-    mplhep.cms.label(ax=ax, llabel="Work in progress", data=False, loc=0)
+    mplhep.cms.label(ax=ax, llabel="Private work", data=False, loc=0)
     file_path = f"{save_path}/confusion_and_std.pdf"
     os.remove(file_path) if os.path.exists(file_path) else None
     plt.savefig(file_path)

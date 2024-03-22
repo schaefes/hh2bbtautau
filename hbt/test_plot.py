@@ -1,10 +1,12 @@
 # encoding: utf-8
 
 from columnflow.tasks.ml import MLEvaluation, MLEvaluationWrapper
+from columnflow.columnar_util import EMPTY_FLOAT
 import numpy as np
 from plotting_funcs import (plot_confusion, plot_roc_ovr, plot_output_nodes,
                             plot_significance, check_distribution, event_weights,
-                            calculate_confusion, plot_confusion_std, calculate_auc)
+                            calculate_confusion, plot_confusion_std, calculate_auc,
+                            norm_weights)
 import os
 import awkward as ak
 
@@ -21,7 +23,7 @@ import awkward as ak
 
 # t.law_run()
 
-model_parse = "4classes_baseline_new_pad"
+model_parse = "4classes_DeepSets_no_neg_weights"
 
 processes_dict = {"graviton_hh_vbf_bbtautau_m400": "graviton_hh_ggf_bbtautau_m400_madgraph",
             "graviton_hh_ggf_bbtautau_m400": "graviton_hh_vbf_bbtautau_m400_madgraph",
@@ -52,40 +54,44 @@ fold_pred = {}
 # get the target and predictions from MLEvaluate
 for num, proc in enumerate(processes_dict.keys()):
     t = MLEvaluation(
-        version="PairsML",
+        version="limits_xsecs",
         ml_model=model_parse,
         dataset=processes_dict[proc],
-        calibrators=("skip_jecunc",),
+        calibrators=("default",),
         # print_status=(3,),
     )
     files = t.output()
     data = files.collection[0]["mlcolumns"].load(formatter="awkward")
     # get part of the model name from the column name
     scores = getattr(data, model_parse)
+    score = {}
     model_check = scores.fields[0].split("__")[-1]
     if num != 0:
         if prev_model != model_check:
             raise Exception(f"Different models mixed up for process {proc}")
     for column in scores.fields:
+        mask_empty_float = ak.to_numpy((getattr(scores, column) != EMPTY_FLOAT))
+        mask_empty_float = mask_empty_float[:, 0] if len(mask_empty_float.shape) > 1 else mask_empty_float
+        score[f'{column}'] = getattr(scores, column)[mask_empty_float]
         if model_check != column.split("__")[-1]:
             raise Exception(f"Different models mixed up for process {proc}")
         if 'target_label' in column:
             proc = "tt" if "tt" in proc and "tt" in processes else proc
             proc = "dy" if "dy" in proc and "dy" in processes else proc
-            target_dict[f'{proc}'] = scores[f'{column}'][0]
+            target_dict[f'{proc}'] = score[f'{column}'][0]
         if 'pred_target' in column:
-            collection_dict[f'{column}'] = scores[f'{column}']
+            collection_dict[f'{column}'] = score[f'{column}']
         if 'weights' in column:
-            weights.append(scores[f'{column}'])
+            weights.append(score[f'{column}'])
         if 'DeepSetsInpPt' in column:
-            DeepSetsInpPt[f'{column}'] = scores[f'{column}']
+            DeepSetsInpPt[f'{column}'] = score[f'{column}']
         if 'DeepSetsInpEta' in column:
-            DeepSetsInpEta[f'{column}'] = scores[f'{column}']
+            DeepSetsInpEta[f'{column}'] = score[f'{column}']
         if 'pred_fold' in column:
             key_name = f'pred_fold_{column.split("fold_")[1][0]}'
-            mask = np.where(scores[column][:, :len(processes)] == -1., False, True)
-            mask = np.transpose(np.tile(mask[:, 0], (np.array(scores[column]).shape[1], 1)))
-            inp = np.array(scores[column][mask]).reshape(-1, np.array(scores[column]).shape[1])
+            mask = np.where(score[column][:, :len(processes)] == -1., False, True)
+            mask = np.transpose(np.tile(mask[:, 0], (np.array(score[column]).shape[1], 1)))
+            inp = np.array(score[column][mask]).reshape(-1, np.array(score[column]).shape[1])
             if key_name in fold_pred.keys():
                 content = fold_pred[key_name]
                 concat = np.concatenate((content, inp), axis=0)
@@ -103,34 +109,24 @@ path = os.path.join(path, model_name)
 if not os.path.exists(path):
     os.makedirs(path)
 
-for arr in fold_pred.values():
-    weights = arr[:, -1]
-    targets = arr[:, (-len(processes) - 1):-1]
-    sample_weights = event_weights(targets, weights)
-    predictions = arr[:, :len(processes)]
-
-
-# collection_pred_target = np.concatenate(list(collection_dict.values()), axis=0)
-# predictions = collection_pred_target[:, :len(processes)]
-# targets = collection_pred_target[:, len(processes):]
+glob_folds = np.concatenate(list(fold_pred.values()), axis=0)
+glob_weights = glob_folds[:, -1]
+glob_targets = glob_folds[:, (-len(processes) - 1):-1]
+normalized_glob_weights = norm_weights(glob_targets, glob_weights)
 
 label_sorting = np.argsort(list(target_dict.values()))
 sorted_label_keys = np.array(list(target_dict.keys()))[label_sorting]
 sorted_labels = [label_dict[label_key] for label_key in sorted_label_keys]
 
-# inputs = {
-#     'prediction': predictions,
-#     'target': targets,
-#     'weights': sample_weights,
-#     }
-
 fold_confusion = []
 fold_auc = []
 for arr in fold_pred.values():
+    targets = arr[:, (-len(processes) - 1):-1]
+    weights = arr[:, -1]
     inputs_fold = {}
     inputs_fold['prediction'] = arr[:, :len(processes)]
-    inputs_fold['target'] = arr[:, len(processes): -1]
-    inputs_fold['weights'] = arr[:, -1]
+    inputs_fold['target'] = targets
+    inputs_fold['weights'] = norm_weights(targets, weights)
     fold_matrix = calculate_confusion(inputs_fold)
     fold_scores = calculate_auc(inputs_fold)
     fold_confusion.append(fold_matrix)
@@ -145,7 +141,7 @@ stacked_inp = np.vstack(list(fold_pred.values()))
 inputs = {
     'prediction': stacked_inp[:, :len(processes)],
     'target': stacked_inp[:, len(processes): -1],
-    'weights': stacked_inp[:, -1],
+    'weights': normalized_glob_weights,
 }
 
 confusion = calculate_confusion(inputs)
