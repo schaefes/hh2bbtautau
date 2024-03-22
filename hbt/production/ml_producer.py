@@ -378,7 +378,7 @@ def kinematic_vars_customvbfmaskjets(self: Producer, events: ak.Array, **kwargs)
         "CustomVBFMaskJets2_mHH", "CustomVBFMaskJets2_mtautau", "CustomVBFMaskJets2_jet_pt_frac",
         "CustomVBFMaskJets2_thrust", "CustomVBFMaskJets2_pt_thrust", "CustomVBFMaskJets2_sphericity",
         "CustomVBFMaskJets2_energy_corr", "CustomVBFMaskJets2_energy_corr_root",
-        "CustomVBFMaskJets2_energy_corr_sqr",
+        "CustomVBFMaskJets2_energy_corr_sqr", "CustomVBFMaskJets2_energy_corr_sqr_tev2"
     },
 )
 def kinematic_vars_customvbfmaskjets2(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
@@ -400,6 +400,7 @@ def kinematic_vars_customvbfmaskjets2(self: Producer, events: ak.Array, **kwargs
     events = set_ak_column(events, "CustomVBFMaskJets2_energy_corr", ak.fill_none(energy_corr, EMPTY_FLOAT))
     events = set_ak_column(events, "CustomVBFMaskJets2_energy_corr_root", ak.fill_none(energy_corr_root, EMPTY_FLOAT))
     events = set_ak_column(events, "CustomVBFMaskJets2_energy_corr_sqr", ak.fill_none(energy_corr_sqr, EMPTY_FLOAT))
+    events = set_ak_column(events, "CustomVBFMaskJets2_energy_corr_sqr_tev2", ak.fill_none(energy_corr_sqr / 1000000, EMPTY_FLOAT))
 
     # use padded jets only for all following operations
     events = set_ak_column(events, "CustomVBFMaskJets2", ak.pad_none(events.CustomVBFMaskJets2, max_njets))
