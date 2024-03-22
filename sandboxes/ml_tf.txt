@@ -1,8 +1,7 @@
 # version 11
 
--r columnar.txt
+-r ${CF_BASE}/sandboxes/ml_tf.txt
 
-tensorflow~=2.11.0
 shap~=0.42.0
 dotted-dict~=1.1.3
 scikit-learn~=1.3.0
