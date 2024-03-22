@@ -13,7 +13,7 @@ from hbt.inference.base import HBTInferenceModelBase
 #
 
 # used to set default requirements for cf.CreateDatacards based on the config
-ml_model_name = "4classes_DeepSetsPP"
+ml_model_name = "4classes_DeepSets_no_neg_weights"
 
 # default_producers = [f"ml_{ml_model_name}", "event_weights"]
 
@@ -79,6 +79,20 @@ default_cls_dict = {
 
 default = HBTInferenceModelBase.derive(
     f"rates_only_{default_cls_dict['ml_model_name']}", cls_dict=default_cls_dict
+)
+
+ggf_cls_dict = {
+    "ml_model_name": ml_model_name,
+    "processes": processes,
+    "config_categories": ["incl"],
+    "systematics": systematics,
+    "mc_stats": True,
+    "skip_data": True,
+    "config_variable": lambda inference_model, config_cat_inst: "mlscore.graviton_hh_ggf_bbtautau_m400"
+}
+
+ml_score_ggf = HBTInferenceModelBase.derive(
+    f"ggf_only_{default_cls_dict['ml_model_name']}", cls_dict=ggf_cls_dict
 )
 
 #
