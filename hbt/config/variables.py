@@ -532,25 +532,41 @@ def add_variables(config: od.Config) -> None:
         name="bjet_pair_mass",
         expression="mbjetbjet",
         null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 400.0),
+        binning=(40, 0.0, 500.0),
         unit="GeV",
         x_title=r"Invariant Mass of leading p$_T$ BJets",
     )
     config.add_variable(
-        name="HH_pair_mass",
-        expression="mHH",
+        name="mbb",
+        expression="CustomVBFMaskJets2_mbb",
         null_value=EMPTY_FLOAT,
-        binning=(50, 0.0, 1200.0),
+        binning=(35, 0.0, 1000.0),
         unit="GeV",
-        x_title=r"HH Pair Mass",
+        x_title=r"$m_{b \bar{b}}$",
+    )
+    config.add_variable(
+        name="mHH",
+        expression="CustomVBFMaskJets2_mHH",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 2000),
+        unit="GeV",
+        x_title=r"$m_{HH}$",
     )
     config.add_variable(
         name="tau_pair_mass",
         expression="mtautau",
         null_value=EMPTY_FLOAT,
-        binning=(40, 0.0, 400.0),
+        binning=(35, 0.0, 400.0),
         unit="GeV",
         x_title=r"Invariant Mass of $\tau$ Leptons",
+    )
+    config.add_variable(
+        name="mtt",
+        expression="CustomVBFMaskJets2_mtautau",
+        null_value=EMPTY_FLOAT,
+        binning=(40, 0.0, 400.0),
+        unit="GeV",
+        x_title=r"$m_{\tau^{-} \tau^{+}}$",
     )
     config.add_variable(
         name="inv_mass_d_eta",
@@ -1311,12 +1327,6 @@ def add_variables(config: od.Config) -> None:
         x_title=r"$p_{T}$ of hardest Jets",
     )
     config.add_variable(
-        name="ht",
-        binning=(50, 0.0, 1200.0),
-        unit="GeV",
-        x_title="HT",
-    )
-    config.add_variable(
         name="n_jet",
         expression="n_jets",
         binning=(11, -0.5, 10.5),
@@ -1326,58 +1336,62 @@ def add_variables(config: od.Config) -> None:
     config.add_variable(
         name="energy_corr",
         expression="CustomVBFMaskJets2_energy_corr",
-        binning=(100, 700, 1000000),
-        unit=r"$GeV^{2}$",
-        x_title="Energy Correlation",
+        binning=(90, 0, 1000000),
+        x_title=r"Energy Correlation / $GeV^{2}$",
     )
     config.add_variable(
         name="energy_corr_root",
         expression="CustomVBFMaskJets2_energy_corr_root",
-        binning=(100, 700, 1000000),
+        binning=(90, 0, 1000000),
         unit=r"$GeV^{2}$",
-        x_title="Energy Correlation",
+        x_title=r"Energy Correlation / $GeV^{2}$",
     )
     config.add_variable(
         name="energy_corr_sqr",
         expression="CustomVBFMaskJets2_energy_corr_sqr",
-        binning=(100, 700, 1000000),
-        unit=r"$GeV^{2}$",
-        x_title="Energy Correlation",
+        binning=(90, 0, 1000000),
+        x_title=r"Energy Correlation / $GeV^{2}$",
+    )
+    config.add_variable(
+        name="energy_corr_sqr_tev2",
+        expression="CustomVBFMaskJets2_energy_corr_sqr_tev2",
+        binning=(27, 0, 2.5),
+        x_title=r"ECF(N=2, $\beta$=2) / $TeV^{2}$",
     )
     config.add_variable(
         name="sphericity",
         expression="CustomVBFMaskJets2_sphericity",
-        binning=(15, 0, 1),
+        binning=(20, 0, 1),
         x_title="Transversal Sphericity",
     )
     config.add_variable(
         name="thrust",
         expression="CustomVBFMaskJets2_thrust",
-        binning=(15, 0, 1),
+        binning=(20, 0, 1),
         x_title="Thrust",
     )
     config.add_variable(
         name="pt_thrust",
         expression="CustomVBFMaskJets2_pt_thrust",
-        binning=(15, 0, 1),
+        binning=(20, 0, 1),
         x_title="Transversal Thrust",
     )
     config.add_variable(
         name="jet_pt_frac",
-        expression="CustomVBFMaskJets2_jet_pt_frac",
-        binning=(15, 0, 1),
+        expression="CustomVBFMaskJets2.jet_pt_frac",
+        binning=(20, 0, 1),
         x_title=r"Jet $p_{T}$ Fractions",
     )
     config.add_variable(
         name="jet_pt_frac2",
-        expression="CustomVBFMaskJets2_jet_pt_frac[:,:2]",
-        binning=(15, 0, 1),
+        expression="CustomVBFMaskJets2_jet_pt_frac[:,0:]",
+        binning=(20, 0, 1),
         x_title=r"Jet $p_{T}$ Fractions",
     )
     config.add_variable(
         name="event_pt_frac",
         expression="CustomVBFMaskJets2_event_pt_frac",
-        binning=(15, 0, 1),
+        binning=(20, 0, 1),
         x_title=r"$p_{T}$ Fractions",
     )
     config.add_variable(
@@ -2205,40 +2219,48 @@ def add_variables(config: od.Config) -> None:
     # NN Input features plotting for custom Jet/VBF selections
     config.add_variable(
         name="CustomVBFMaskJets2_pt",
-        expression="CustomVBFMaskJets2_pt[:, 0]",
+        expression="CustomVBFMaskJets2.pt",
         null_value=EMPTY_FLOAT,
-        binning=(60, 0.0, 800.0),
+        binning=(32, -10000.0, 700.0),
         unit="GeV",
-        x_title=r"Jet 1 p$_{T}$",
+        x_title=r"Jet p$_{T}$",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_pt_6",
+        expression="CustomVBFMaskJets2.pt[:,6]",
+        null_value=EMPTY_FLOAT,
+        binning=(32, -10000.0, 700.0),
+        unit="GeV",
+        x_title=r"Jet p$_{T}$",
     )
     config.add_variable(
         name="CustomVBFMaskJets2_eta",
-        expression="CustomVBFMaskJets2_eta[:, 0]",
+        expression="CustomVBFMaskJets2.eta",
         null_value=EMPTY_FLOAT,
-        binning=(20, 0.0, 5.5),
-        x_title=r"Jet 1 $\eta$",
+        binning=(20, -5., 5.),
+        x_title=r"Jet $\eta$",
     )
     config.add_variable(
         name="CustomVBFMaskJets2_phi",
-        expression="CustomVBFMaskJets2_phi[:, 0]",
+        expression="CustomVBFMaskJets2.phi",
         null_value=EMPTY_FLOAT,
-        binning=(20, -3.0, 3.0),
-        x_title=r"Jet 1 $\phi$",
+        binning=(20, -3.15, 3.15),
+        x_title=r"Jet $\phi$",
     )
     config.add_variable(
         name="CustomVBFMaskJets2_mass",
-        expression="CustomVBFMaskJets2_mass[:, 0]",
+        expression="CustomVBFMaskJets2.mass",
         null_value=EMPTY_FLOAT,
-        binning=(60, 0.0, 200.0),
+        binning=(25, 0.0, 100.0),
         unit="GeV",
-        x_title=r"Jet 1 Mass",
+        x_title=r"Jet Mass",
     )
     config.add_variable(
         name="CustomVBFMaskJets2_e",
-        expression="CustomVBFMaskJets2_e[:, 0]",
+        expression="CustomVBFMaskJets2_e[:,0]",
         null_value=EMPTY_FLOAT,
         binning=(70, 0.0, 1200.0),
-        unit = "GeV",
+        unit="GeV",
         x_title=r"Jet 1 Energy",
     )
     config.add_variable(
@@ -2264,46 +2286,46 @@ def add_variables(config: od.Config) -> None:
     )
     config.add_variable(
         name="CustomVBFMaskJets2_bFlavtagCvB",
-        expression="CustomVBFMaskJets2_bFlavtagCvB[:, 0]",
+        expression="CustomVBFMaskJets2.btagDeepFlavCvB",
         null_value=EMPTY_FLOAT,
-        binning=(15, 0.0, 1.0),
-        x_title=r"Jet 1 DeepFlavCvB Score",
+        binning=(20, 0.0, 1.0),
+        x_title=r"Deep Flav CvB Score",
     )
     config.add_variable(
-        name="CustomVBFMaskJets2_bFlavtag",
-        expression="CustomVBFMaskJets2_bFlavtag[:, 0]",
+        name="CustomVBFMaskJets2_bFlavtagB",
+        expression="CustomVBFMaskJets2.btagDeepFlavB",
         null_value=EMPTY_FLOAT,
-        binning=(15, 0.0, 1.0),
-        x_title=r"Jet 1 DeepFlavB Score",
+        binning=(20, 0.0, 1.0),
+        x_title=r"Deep Flav B Score",
     )
     config.add_variable(
         name="CustomVBFMaskJets2_bFlavtagCvL",
-        expression="CustomVBFMaskJets2_bFlavtagCvL[:, 0]",
+        expression="CustomVBFMaskJets2.btagDeepFlavCvL",
         null_value=EMPTY_FLOAT,
-        binning=(15, 0.0, 1.0),
-        x_title=r"Jet 1 DeepFlavCvL Score",
+        binning=(20, 0.0, 1.0),
+        x_title=r"Deep Flav CvL Score",
     )
     config.add_variable(
         name="CustomVBFMaskJets2_btagQG",
-        expression="CustomVBFMaskJets2_btagQG[:, 0]",
+        expression="CustomVBFMaskJets2.btagDeepFlavQG",
         null_value=EMPTY_FLOAT,
-        binning=(15, 0.0, 1.0),
-        x_title=r"Jet 1 DeepQG Score",
+        binning=(20, 0.0, 1.0),
+        x_title=r"Deep Flav QG Score",
     )
     config.add_variable(
         name="CustomVBFMaskJets2_njets",
         expression="CustomVBFMaskJets2_njets",
         null_value=EMPTY_FLOAT,
-        binning=(12, -0.5, 11.5),
+        binning=(11, -0.5, 10.5),
         x_title=r"Number of Jets per Event",
     )
     config.add_variable(
         name="CustomVBFMaskJets2_mjj",
         expression="CustomVBFMaskJets2_mjj",
         null_value=EMPTY_FLOAT,
-        binning=(70, 0.0, 1200.0),
+        binning=(50, 0.0, 2500.0),
         unit="GeV",
-        x_title=r"Highest Invariant Pair Mass of Jets",
+        x_title=r"Max. $m_{jj}$",
     )
     config.add_variable(
         name="CustomVBFMaskJets_mtautau",
@@ -2325,17 +2347,25 @@ def add_variables(config: od.Config) -> None:
         name="CustomVBFMaskJets2_ht",
         expression="CustomVBFMaskJets2_ht",
         null_value=EMPTY_FLOAT,
-        binning=(70, 0.0, 1500.0),
+        binning=(45, 0.0, 2000.0),
         unit="GeV",
         x_title=r"H$_{T}$",
+    )
+    config.add_variable(
+        name="CustomVBFMaskJets2_ht2",
+        expression="CustomVBFMaskJets2_ht",
+        null_value=EMPTY_FLOAT,
+        binning=(45, 0.0, 2000.0),
+        unit="GeV",
+        x_title=r"HT",
     )
     config.add_variable(
         name="CustomVBFMaskJets2_mjj_dEta",
         expression="CustomVBFMaskJets2_mjj_dEta",
         null_value=EMPTY_FLOAT,
-        binning=(70, 0.0, 1500.0),
+        binning=(37, 0.0, 2500.0),
         unit="GeV",
-        x_title=r"Invariant Mass of max. $\Delta \eta$ Pair",
+        x_title=r"Invariant Mass of max. $\Delta \eta$ Jet Pair",
     )
     config.add_variable(
         name="CustomVBFMaskJets2_max_dEta",
@@ -2578,28 +2608,28 @@ def add_variables(config: od.Config) -> None:
         name="mlscore.graviton_hh_vbf_bbtautau_m400",
         expression="mlscore.graviton_hh_vbf_bbtautau_m400",
         null_value=EMPTY_FLOAT,
-        binning=(10, 0., 1.),
+        binning=(10000, 0., 1.),
         x_title=r"ML Category HH$_{VBF, m400}$",
     )
     config.add_variable(
         name="mlscore.graviton_hh_ggf_bbtautau_m400",
         expression="mlscore.graviton_hh_ggf_bbtautau_m400",
         null_value=EMPTY_FLOAT,
-        binning=(10, 0., 1.),
+        binning=(10000, 0., 1.),
         x_title=r"ML Category HH$_{GGF, m400}$",
     )
     config.add_variable(
         name="mlscore.dy",
         expression="mlscore.dy",
         null_value=EMPTY_FLOAT,
-        binning=(10, 0., 1.),
-        x_title=r"ML Category HH$_{DY, m400}$",
+        binning=(10000, 0., 1.),
+        x_title=r"ML Category DY",
     )
     config.add_variable(
         name="mlscore.tt",
         expression="mlscore.tt",
         null_value=EMPTY_FLOAT,
-        binning=(10, 0., 1.),
-        x_title=r"ML Category HH$_{t\bar{t}, m400}$",
+        binning=(10000, 0., 1.),
+        x_title=r"ML Category $t\bar{t}$",
     )
 
