@@ -17,9 +17,9 @@ shap = maybe_import("shap")
 
 
 # used later in shap functions
-def correlation_matrix(topDS, inp_full, topDS_labels, event_labels, file_name, output):
+def correlation_matrix(topDS, inp_full, topDS_labels, event_labels, file_name):
     # calculate the correlation coefficients
-    corrcoef = np.zeros((10, len(event_labels)))
+    corrcoef = np.zeros((len(topDS), len(event_labels)))
     events_inp = inp_full[:, - len(event_labels):]
     for i, ds_col in enumerate(topDS):
         for inp2_col in range(events_inp.shape[1]):
@@ -46,7 +46,7 @@ def correlation_matrix(topDS, inp_full, topDS_labels, event_labels, file_name, o
             plt.annotate(str(corrcoef[i][j]), xy=(j, i), ha='center', va='center', color='black',
                         fontsize=17)
     mplhep.cms.label(llabel="Private Work (CMS Simulation)", data=False, loc=0)
-    output.child(f"Correlation_Coefficients{file_name}.pdf", type="f").dump(fig2, formatter="mpl")
+    # output.child(f"Correlation_Coefficients{file_name}.pdf", type="f").dump(fig2, formatter="mpl")
 
     # Scatter Plot for the leading correlation value
     leading = np.argwhere(corrcoef == corrcoef.max()).flatten()
@@ -60,7 +60,9 @@ def correlation_matrix(topDS, inp_full, topDS_labels, event_labels, file_name, o
     title_str = "Scatter Correlation " + r"$\rho_{X,Y}=$" + f"{corrcoef.max()}"
     plt.title(title_str, loc='left')
     mplhep.cms.label(llabel="Private Work (CMS Simulation)", data=False, loc=2)
-    output.child(f"Scatter_Correlation{file_name}.pdf", type="f").dump(fig3, formatter="mpl")
+    # output.child(f"Scatter_Correlation{file_name}.pdf", type="f").dump(fig3, formatter="mpl")
+
+    return corrcoef
 
 
 def plot_loss(history, output, classification="categorical") -> None:
@@ -80,6 +82,8 @@ def plot_loss(history, output, classification="categorical") -> None:
     mplhep.cms.label(ax=ax, llabel="Private Work (CMS Simulation)", data=False)
 
     output.child("Loss.pdf", type="f").dump(fig, formatter="mpl")
+    output.child('loss.txt', type="d").dump(history["loss"], formatter="text")
+    output.child('val_loss.txt', type="d").dump(history["val_loss"], formatter="text")
 
 
 def plot_accuracy(history, output, classification="categorical") -> None:
@@ -100,6 +104,8 @@ def plot_accuracy(history, output, classification="categorical") -> None:
     mplhep.cms.label(ax=ax, llabel="Private Work (CMS Simulation)", data=False)
 
     output.child("Accuracy.pdf", type="f").dump(fig, formatter="mpl")
+    output.child(f'accuracy.txt', type="d").dump(history[f"{classification}_accuracy"], formatter="text")
+    output.child(f'val_accuracy.txt', type="d").dump(history[f"val_{classification}_accuracy"], formatter="text")
 
 
 def plot_confusion(
@@ -137,6 +143,7 @@ def plot_confusion(
     # ax.set_title(f"{input_type} set, rows normalized", fontsize=32, loc="left")
     mplhep.cms.label(ax=ax, llabel="Private Work (CMS Simulation)", data=False, loc=0)
     output.child(f"Confusion_{input_type}_{sorting}.pdf", type="f").dump(fig, formatter="mpl")
+    output.child(f'confusion_values_{input_type}.txt', type="d").dump(confusion, formatter="text")
 
 
 def plot_roc_ovr(
@@ -186,6 +193,7 @@ def plot_roc_ovr(
     mplhep.cms.label(ax=ax, llabel="Private Work (CMS Simulation)", data=False, loc=2)
 
     output.child(f"ROC_ovr_{input_type}.pdf", type="f").dump(fig, formatter="mpl")
+    output.child(f'auc_values_{input_type}.txt', type="d").dump(auc_scores, formatter="text")
 
 
 def plot_roc_ovr_binary(
@@ -358,26 +366,32 @@ def plot_significance(
 def plot_shap_deep_sets(
         model: tf.keras.models.Model,
         train: DotDict,
-        output: law.FileSystemDirectoryTarget,
-        process_insts: tuple[od.Process],
+        # output: law.FileSystemDirectoryTarget,
+        # process_insts: tuple[od.Process],
+        processes,
         target_dict,
         feature_names,
         latex_dict,
+        proc_labels,
+        npz_path,
+        fold,
+        ensamble,
+        subset_idx,
 ) -> None:
+    import os
 
     # names of the features
     event_labels = list(map(latex_dict.get, feature_names[1]))
     # make sure class names are sorted correctly in correspondence to their target index
     classes = sorted(target_dict.items(), key=lambda x: x[1])
     class_sorted = np.array(classes)[:, 0]
-    class_list = ['empty' for i in range(len(process_insts))]
-    for proc in process_insts:
-        idx = np.where(class_sorted == proc.name)
-        class_list[idx[0][0]] = proc.label
+    class_list = ['empty' for i in range(len(processes))]
+    for proc in processes:
+        idx = np.where(class_sorted == proc)
+        class_list[idx[0][0]] = proc_labels[proc]
 
     # get the Deep Sets model Output that will be used as Input for the subsequent FF Network
-    subset_idx = 150
-    deepSets_op_full = model.deepset_network.predict(train['inputs'])
+    deepSets_op_full = model.deepset_network.predict([train['inputs'], train['inputs2']])
     deepSets_op = deepSets_op_full[:subset_idx]
     deepSets_op2 = deepSets_op_full[-subset_idx:]
 
@@ -393,11 +407,11 @@ def plot_shap_deep_sets(
     shap_values = explainer.shap_values(concat_inp2)
 
     # Plot Feature Ranking
-    fig1 = plt.figure(figsize=(20, 15))
-    shap.summary_plot(shap_values, plot_type="bar",
-        feature_names=features_list, class_names=class_list, show=False, max_display=25)
-    plt.title("Feature Importance Ranking")
-    output.child("DeepSets_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
+    # fig1 = plt.figure(figsize=(20, 15))
+    # shap.summary_plot(shap_values, plot_type="bar",
+    #     feature_names=features_list, class_names=class_list, show=False, max_display=25)
+    # plt.title("Feature Importance Ranking")
+    # output.child("DeepSets_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
 
     # Begin preparation for the correlation matrix
     shap_values = np.array(shap_values)
@@ -408,10 +422,12 @@ def plot_shap_deep_sets(
 
     # get the indices and sort them in descending order
     idx = np.argsort(ranking)[::-1]
+    shap_ranking = features_list[idx]
+    txt_info = f"features_list:{features_list}\n"
 
     # get only the indices of the leading DS Nodes and the labels
     idx = idx[idx < len(deepSets_features)]
-    topDS_idx = idx[:10]
+    topDS_idx = idx[:20]
     topDS_labels = features_list[topDS_idx]
 
     # get the first two jets of each event and arrange them in an array (N events, 2*N Jet Features)
@@ -423,13 +439,20 @@ def plot_shap_deep_sets(
     # inputs for the calculations of the correlation matrix
     inp_events = np.concatenate((deepSets_op_full, train['inputs2']), axis=1)
     inp_jets = np.concatenate((deepSets_op_full, jets_12), axis=1)
-    correlation_matrix(topDS_idx, inp_events, topDS_labels, event_labels, "", output)
-    correlation_matrix(topDS_idx, inp_jets, topDS_labels, jet_labels_12, "_to_jets_top", output)
+    inp_op_corr = np.concatenate((np.array(train["shap_pred"]), jets_12), axis=1)
+    corrcoef_events = correlation_matrix(topDS_idx, inp_events, topDS_labels, event_labels, "")
+    corrcoef_jets = correlation_matrix(topDS_idx, inp_jets, topDS_labels, jet_labels_12, "_to_jets_top")
+    corrcoef_op = correlation_matrix(np.arange(len(train["shap_pred"][0])), inp_op_corr, class_list, jet_labels_12, "op_to_jets_top")
 
+    txt_info += f"top{len(topDS_labels)}DS_labels:{topDS_labels}\n"
+    txt_info += f"event_labels:{event_labels}\n"
+    txt_info += f"jet_labels_12:{jet_labels_12}\n"
+    txt_info += f"op_labels:{jet_labels_12}\n"
     # create correlation matrices for different jet multiplicities
     # get the index of the column that contains the number of jets
     idx_njets = np.argwhere(np.char.find(feature_names[1], 'njets') != -1)[0][0]
     n_jets = train['inputs2'][:, idx_njets]
+    jets_corrcoefs_multiplicities = []
     for jet_num in [2, 3, 4, 5]:
         # generate mask for the specified jet multiplicity
         mask = np.isin(n_jets, jet_num)
@@ -439,34 +462,55 @@ def plot_shap_deep_sets(
         jet_features = np.tile(jet_labels, jet_num)
         nums = np.repeat(np.arange(1, jet_num + 1), len(feature_names[0])).astype(str)
         labels = np.char.add(jet_features, nums)
-        correlation_matrix(topDS_idx, inp_jets, topDS_labels, labels, f"_jets_{jet_num}", output)
+        jet_coef_multiplicity = correlation_matrix(topDS_idx, inp_jets, topDS_labels, labels, f"_jets_{jet_num}")
+        os.makedirs(os.path.join(npz_path, "corrcoef_jets_multiplicity"), exist_ok=True)
+        np.save(os.path.join(npz_path, "corrcoef_jets_multiplicity", f"fold{fold}_ensamble{ensamble}_multiplicity{jet_num}"), jet_coef_multiplicity)
+        txt_info += f"multiplicity{jet_num}labels:{labels}\n"
+        jets_corrcoefs_multiplicities.append(jet_coef_multiplicity)
+
+    os.makedirs(os.path.join(npz_path, "shap"), exist_ok=True)
+    os.makedirs(os.path.join(npz_path, "corrcoef_events"), exist_ok=True)
+    os.makedirs(os.path.join(npz_path, "corrcoef_jets"), exist_ok=True)
+    os.makedirs(os.path.join(npz_path, "corrcoef_op"), exist_ok=True)
+    np.save(os.path.join(npz_path, "shap", f"fold{fold}_ensamble{ensamble}"), shap_values)
+    np.save(os.path.join(npz_path, "corrcoef_events", f"fold{fold}_ensamble{ensamble}"), corrcoef_events)
+    np.save(os.path.join(npz_path, "corrcoef_jets", f"fold{fold}_ensamble{ensamble}"), corrcoef_jets)
+    np.save(os.path.join(npz_path, "corrcoef_op", f"fold{fold}_ensamble{ensamble}"), corrcoef_op)
+
+    label_path = os.path.join(npz_path, f"label_info_fold{fold}_ensamble{ensamble}.txt")
+    with open(label_path, "w") as file:
+        file.write(txt_info)
 
 
 def plot_shap_deep_sets_pp(
         model: tf.keras.models.Model,
         train: DotDict,
-        output: law.FileSystemDirectoryTarget,
-        process_insts: tuple[od.Process],
+        processes,
         target_dict,
         feature_names,
         features_pairs,
         latex_dict,
+        proc_labels,
+        npz_path,
+        fold,
+        ensamble,
+        subset_idx,
 ) -> None:
 
     import math
+    import os
     # shap values for the DeepSets architecture taking jets and pairs and input (working parallel)
     # names of the features
     event_features = feature_names[1]
     # make sure class names are sorted correctly in correspondence to their target index
     classes = sorted(target_dict.items(), key=lambda x: x[1])
     class_sorted = np.array(classes)[:, 0]
-    class_list = ['empty' for i in range(len(process_insts))]
-    for proc in process_insts:
-        idx = np.where(class_sorted == proc.name)
-        class_list[idx[0][0]] = proc.label
+    class_list = ['empty' for i in range(len(processes))]
+    for proc in processes:
+        idx = np.where(class_sorted == proc)
+        class_list[idx[0][0]] = proc_labels[proc]
 
     # get the Deep Sets model Output that will be used as Input for the subsequent FF Network
-    subset_idx = 150
     # Output of DeepSets for Jets
     deepSets_jets_op_full = model.deepset_jets_network.predict(train['inputs'])
     deepSets_jets_op = deepSets_jets_op_full[:subset_idx]
@@ -493,11 +537,11 @@ def plot_shap_deep_sets_pp(
     # Plot Feature Ranking
     event_labels = list(map(latex_dict.get, event_features))
     features_list = deepSets_features + event_labels
-    fig1 = plt.figure(figsize=(20, 15))
-    shap.summary_plot(shap_values, plot_type="bar",
-        feature_names=features_list, class_names=class_list, show=False, max_display=25)
-    plt.title('Feature Importance Ranking')
-    output.child("DeepSetsPP_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
+    # fig1 = plt.figure(figsize=(20, 15))
+    # shap.summary_plot(shap_values, plot_type="bar",
+    #     feature_names=features_list, class_names=class_list, show=False, max_display=25)
+    # plt.title('Feature Importance Ranking')
+    # output.child("DeepSetsPP_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
 
     # Begin preparation for the correlation matrix
     shap_values = np.array(shap_values)
@@ -508,10 +552,12 @@ def plot_shap_deep_sets_pp(
 
     # get the indices and sort them in descending order
     idx = np.argsort(ranking)[::-1]
+    shap_ranking = features_list[idx]
+    txt_info = f"features_list:{features_list}\n"
 
     # get only the indices of the leading DS Nodes and the labels
     idx = idx[idx < len(deepSets_features)]
-    topDS_idx = idx[:10]
+    topDS_idx = idx[:20]
     topDS_labels = features_list[topDS_idx]
 
     # get only the indices of the leading DS jets Nodes and the labels
@@ -524,9 +570,17 @@ def plot_shap_deep_sets_pp(
     topDS_idx_pairs = idx_pairs[:10]
     topDS_pairs_labels = features_list[topDS_idx_pairs]
 
-    correlation_matrix(topDS_idx, inp_full, topDS_labels, event_labels, "_Event_Features", output)
-    correlation_matrix(topDS_idx_jets, inp_full, topDS_jets_labels, event_labels, "_Event_Features_DSJ", output)
-    correlation_matrix(topDS_idx_pairs, inp_full, topDS_pairs_labels, event_labels, "_Event_Features_DSP", output)
+    corrcoef_events = correlation_matrix(topDS_idx, inp_full, topDS_labels, event_labels, "_Event_Features")
+    corrcoef_events_DSJ = correlation_matrix(topDS_idx_jets, inp_full, topDS_jets_labels, event_labels, "_Event_Features_DSJ")
+    corrcoef_events_DSP = correlation_matrix(topDS_idx_pairs, inp_full, topDS_pairs_labels, event_labels, "_Event_Features_DSP")
+    os.makedirs(os.path.join(npz_path, "shap"), exist_ok=True)
+    os.makedirs(os.path.join(npz_path, "corrcoef_events"), exist_ok=True)
+    os.makedirs(os.path.join(npz_path, "corrcoef_events_DSJ"), exist_ok=True)
+    os.makedirs(os.path.join(npz_path, "corrcoef_events_DSP"), exist_ok=True)
+    np.save(os.path.join(npz_path, "shap", f"fold{fold}_ensamble{ensamble}"), shap_values)
+    np.save(os.path.join(npz_path, "corrcoef_events", f"fold{fold}_ensamble{ensamble}"), corrcoef_events)
+    np.save(os.path.join(npz_path, "corrcoef_events_DSJ", f"fold{fold}_ensamble{ensamble}"), corrcoef_events_DSJ)
+    np.save(os.path.join(npz_path, "corrcoef_events_DSP", f"fold{fold}_ensamble{ensamble}"), corrcoef_events_DSP)
 
     # get the first two jets of each event and arrange them in an array (N events, 2*N Jet Features)
     jets_12 = train['inputs'][:, :2, :].numpy()
@@ -534,14 +588,18 @@ def plot_shap_deep_sets_pp(
     jet_labels = np.array(list(map(latex_dict.get, feature_names[0]))).astype(str)
     jet_labels_12 = np.concatenate((np.char.add(jet_labels, " 1"), np.char.add(jet_labels, " 2")))
     inp_jets = np.concatenate((deepSets_op_full, jets_12), axis=1)
-    correlation_matrix(topDS_idx_jets, inp_jets, topDS_jets_labels, jet_labels_12, "_to_jets_DSJ", output)
+    corrcoef_jets = correlation_matrix(topDS_idx_jets, inp_jets, topDS_jets_labels, jet_labels_12, "_to_jets_DSJ")
+    os.makedirs(os.path.join(npz_path, "corrcoef_jets"), exist_ok=True)
+    np.save(os.path.join(npz_path, "corrcoef_jets", f"fold{fold}_ensamble{ensamble}"), corrcoef_jets)
 
-    # get the first pair each event
+    # get the first pair of each event
     pair_1 = train['pairs_inp'][:, 0, :].numpy()
     pair_1 = pair_1.reshape((pair_1.shape[0], -1))
     pair_1_labels = np.char.add(features_pairs, " 1")
     inp_pair = np.concatenate((deepSets_op_full, pair_1), axis=1)
-    correlation_matrix(topDS_idx_pairs, inp_pair, topDS_pairs_labels, pair_1_labels, "_to_pair_DSP", output)
+    corrcoef_pairs = correlation_matrix(topDS_idx_pairs, inp_pair, topDS_pairs_labels, pair_1_labels, "_to_pair_DSP")
+    os.makedirs(os.path.join(npz_path, "corrcoef_pairs"), exist_ok=True)
+    np.save(os.path.join(npz_path, "corrcoef_pairs", f"fold{fold}_ensamble{ensamble}"), corrcoef_pairs)
 
     # create correlation matrices for different jet multiplicities
     # get the index of the column that contains the number of jets
@@ -564,33 +622,52 @@ def plot_shap_deep_sets_pp(
         nums_pairs = np.repeat(np.arange(1, pair_num + 1), len(features_pairs)).astype(str)
         labels_jets = np.char.add(jet_features, nums_jets)
         labels_pairs = np.char.add(pair_features, nums_pairs)
-        correlation_matrix(topDS_idx_jets, inp_jets, topDS_jets_labels, labels_jets, f"_jets_{jet_num}", output)
-        correlation_matrix(topDS_idx_pairs, inp_pairs, topDS_pairs_labels, labels_pairs, f"_pairs_{pair_num}", output)
+        corrcoef_jets_multiplicity = correlation_matrix(topDS_idx_jets, inp_jets, topDS_jets_labels, labels_jets, f"_jets_{jet_num}")
+        corrcoef_pairs_multiplicity = correlation_matrix(topDS_idx_pairs, inp_pairs, topDS_pairs_labels, labels_pairs, f"_pairs_{pair_num}")
+        os.makedirs(os.path.join(npz_path, f"corrcoef_jets_multiplicity{jet_num}"), exist_ok=True)
+        np.save(os.path.join(npz_path, f"corrcoef_jets_multiplicity{jet_num}", f"fold{fold}_ensamble{ensamble}"), corrcoef_jets_multiplicity)
+        os.makedirs(os.path.join(npz_path, f"corrcoef_pairs_multiplicity{pair_num}"), exist_ok=True)
+        np.save(os.path.join(npz_path, f"corrcoef_pairs_multiplicity{pair_num}", f"fold{fold}_ensamble{ensamble}"), corrcoef_pairs_multiplicity)
+
+    txt_info += f"topDSlabels:{topDS_labels}\n"
+    txt_info += f"eventslabels:{event_labels}\n"
+    txt_info += f"topDS_jets_labels:{topDS_jets_labels}\n"
+    txt_info += f"topDS_pairs_labels:{topDS_pairs_labels}\n"
+    txt_info += f"jet_labels_12:{jet_labels_12}\n"
+    txt_info += f"pair_1_labels:{pair_1_labels}\n"
+    label_path = os.path.join(npz_path, f"label_info_fold{fold}_ensamble{ensamble}.txt")
+    with open(label_path, "w") as file:
+        file.write(txt_info)
 
 
 def plot_shap_deep_sets_ps(
         model: tf.keras.models.Model,
         train: DotDict,
-        output: law.FileSystemDirectoryTarget,
-        process_insts: tuple[od.Process],
+        processes,
         target_dict,
         feature_names,
         features_pairs,
         latex_dict,
+        proc_labels,
+        npz_path,
+        fold,
+        ensamble,
+        subset_idx,
 ) -> None:
+    import math
+    import os
     # shap values for the DeepSets architecture taking jets and pairs and input (working parallel)
     # names of the features
     event_features = feature_names[1]
     # make sure class names are sorted correctly in correspondence to their target index
     classes = sorted(target_dict.items(), key=lambda x: x[1])
     class_sorted = np.array(classes)[:, 0]
-    class_list = ['empty' for i in range(len(process_insts))]
-    for proc in process_insts:
-        idx = np.where(class_sorted == proc.name)
-        class_list[idx[0][0]] = proc.label
+    class_list = ['empty' for i in range(len(processes))]
+    for proc in processes:
+        idx = np.where(class_sorted == proc)
+        class_list[idx[0][0]] = proc_labels[proc]
 
     # get the Deep Sets model Output that will be used as Input for the subsequent FF Network
-    subset_idx = 150
     # Output of DeepSetsPS
     deepSets_op_full = model.deepset_network.predict([train['inputs'], train['pairs_inp']])
 
@@ -600,6 +677,7 @@ def plot_shap_deep_sets_ps(
 
     # calculate shap values
     deepSets_op_full = np.concatenate(deepSets_op_full, axis=1)
+    inp_full = np.concatenate((deepSets_op_full, train['inputs2']), axis=1)
     deepSets_op = deepSets_op_full[:subset_idx]
     deepSets_op2 = deepSets_op_full[-subset_idx:]
     concat_inp = np.concatenate((deepSets_op, train['inputs2'][:subset_idx]), axis=1)
@@ -611,11 +689,11 @@ def plot_shap_deep_sets_ps(
     # Plot Feature Ranking
     event_labels = list(map(latex_dict.get, event_features))
     features_list = deepSets_features + event_labels
-    fig1 = plt.figure()
-    shap.summary_plot(shap_values, plot_type="bar",
-        feature_names=features_list, class_names=class_list, show=False, max_display=25)
-    plt.title('Feature Importance Ranking')
-    output.child("DeepSetPS_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
+    # fig1 = plt.figure()
+    # shap.summary_plot(shap_values, plot_type="bar",
+    #     feature_names=features_list, class_names=class_list, show=False, max_display=25)
+    # plt.title('Feature Importance Ranking')
+    # output.child("DeepSetPS_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
 
     # Begin preparation for the correlation matrix
     shap_values = np.array(shap_values)
@@ -626,10 +704,12 @@ def plot_shap_deep_sets_ps(
 
     # get the indices and sort them in descending order
     idx = np.argsort(ranking)[::-1]
+    shap_ranking = features_list[idx]
+    txt_info = f"features_list:{features_list}\n"
 
     # get only the indices of the leading DS Nodes and the labels
     idx = idx[idx < len(deepSets_features)]
-    topDS_idx = idx[:10]
+    topDS_idx = idx[:20]
     topDS_labels = features_list[topDS_idx]
 
     # get only the indices of the leading DS jets Nodes and the labels
@@ -642,8 +722,17 @@ def plot_shap_deep_sets_ps(
     topDS_idx_pairs = idx_pairs[:10]
     topDS_pairs_labels = features_list[topDS_idx_pairs]
 
-    inp_events = np.concatenate((deepSets_op_full, train['inputs2']), axis=1)
-    correlation_matrix(topDS_idx, inp_events, topDS_labels, event_labels, "_Event_Features", output)
+    corrcoef_events = correlation_matrix(topDS_idx, inp_full, topDS_labels, event_labels, "_Event_Features")
+    corrcoef_events_DSJ = correlation_matrix(topDS_idx_jets, inp_full, topDS_jets_labels, event_labels, "_Event_Features_DSJ")
+    corrcoef_events_DSP = correlation_matrix(topDS_idx_pairs, inp_full, topDS_pairs_labels, event_labels, "_Event_Features_DSP")
+    os.makedirs(os.path.join(npz_path, "shap"), exist_ok=True)
+    os.makedirs(os.path.join(npz_path, "corrcoef_events"), exist_ok=True)
+    os.makedirs(os.path.join(npz_path, "corrcoef_events_DSJ"), exist_ok=True)
+    os.makedirs(os.path.join(npz_path, "corrcoef_events_DSP"), exist_ok=True)
+    np.save(os.path.join(npz_path, "shap", f"fold{fold}_ensamble{ensamble}"), shap_values)
+    np.save(os.path.join(npz_path, "corrcoef_events", f"fold{fold}_ensamble{ensamble}"), corrcoef_events)
+    np.save(os.path.join(npz_path, "corrcoef_events_DSJ", f"fold{fold}_ensamble{ensamble}"), corrcoef_events_DSJ)
+    np.save(os.path.join(npz_path, "corrcoef_events_DSP", f"fold{fold}_ensamble{ensamble}"), corrcoef_events_DSP)
 
     # get the first two jets of each event and arrange them in an array (N events, 2*N Jet Features)
     jets_12 = train['inputs'][:, :2, :].numpy()
@@ -651,28 +740,77 @@ def plot_shap_deep_sets_ps(
     jet_labels = np.array(list(map(latex_dict.get, feature_names[0]))).astype(str)
     jet_labels_12 = np.concatenate((np.char.add(jet_labels, " 1"), np.char.add(jet_labels, " 2")))
     inp_jets = np.concatenate((deepSets_op_full, jets_12), axis=1)
-    correlation_matrix(topDS_idx_jets, inp_jets, topDS_jets_labels, jet_labels_12, "_to_jets_DSJ", output)
+    corrcoef_jets = correlation_matrix(topDS_idx_jets, inp_jets, topDS_jets_labels, jet_labels_12, "_to_jets_DSJ", output)
+    os.makedirs(os.path.join(npz_path, "corrcoef_jets"), exist_ok=True)
+    np.save(os.path.join(npz_path, "corrcoef_jets", f"fold{fold}_ensamble{ensamble}"), corrcoef_jets)
 
-    # get the first pair each event
+    # get the first pair of each event
     pair_1 = train['pairs_inp'][:, 0, :].numpy()
     pair_1 = pair_1.reshape((pair_1.shape[0], -1))
     pair_1_labels = np.char.add(features_pairs, " 1")
     inp_pair = np.concatenate((deepSets_op_full, pair_1), axis=1)
-    correlation_matrix(topDS_idx_pairs, inp_pair, topDS_pairs_labels, pair_1_labels, "_to_pair_DSP", output)
+    corrcoef_pairs = correlation_matrix(topDS_idx_pairs, inp_pair, topDS_pairs_labels, pair_1_labels, "_to_pair_DSP")
+    os.makedirs(os.path.join(npz_path, "corrcoef_pairs"), exist_ok=True)
+    np.save(os.path.join(npz_path, "corrcoef_pairs", f"fold{fold}_ensamble{ensamble}"), corrcoef_pairs)
+
+    # create correlation matrices for different jet multiplicities
+    # get the index of the column that contains the number of jets
+    idx_njets = np.argwhere(np.char.find(feature_names[1], 'njets') != -1)[0][0]
+    n_jets = train['inputs2'][:, idx_njets]
+    for jet_num in [2, 3, 4, 5]:
+        # generate mask for the specified jet multiplicity
+        pair_num = math.factorial(jet_num) / (2 * math.factorial(jet_num - 2))
+        pair_num = int(pair_num)
+        mask = np.isin(n_jets, jet_num)
+        jets = train['inputs'][mask][:, :jet_num, :].numpy()
+        jets = jets.reshape((jets.shape[0], -1))
+        pairs = train['pairs_inp'][mask][:, :pair_num, :].numpy()
+        pairs = pairs.reshape((pairs.shape[0], -1))
+        inp_jets = np.concatenate((deepSets_op_full[mask], jets), axis=1)
+        inp_pairs = np.concatenate((deepSets_op_full[mask], pairs), axis=1)
+        jet_features = np.tile(jet_labels, jet_num)
+        pair_features = np.tile(features_pairs, pair_num)
+        nums_jets = np.repeat(np.arange(1, jet_num + 1), len(feature_names[0])).astype(str)
+        nums_pairs = np.repeat(np.arange(1, pair_num + 1), len(features_pairs)).astype(str)
+        labels_jets = np.char.add(jet_features, nums_jets)
+        labels_pairs = np.char.add(pair_features, nums_pairs)
+        corrcoef_jets_multiplicity = correlation_matrix(topDS_idx_jets, inp_jets, topDS_jets_labels, labels_jets, f"_jets_{jet_num}")
+        corrcoef_pairs_multiplicity = correlation_matrix(topDS_idx_pairs, inp_pairs, topDS_pairs_labels, labels_pairs, f"_pairs_{pair_num}")
+        os.makedirs(os.path.join(npz_path, f"corrcoef_jets_multiplicity{jet_num}"), exist_ok=True)
+        np.save(os.path.join(npz_path, f"corrcoef_jets_multiplicity{jet_num}", f"fold{fold}_ensamble{ensamble}"), corrcoef_jets_multiplicity)
+        os.makedirs(os.path.join(npz_path, f"corrcoef_pairs_multiplicity{pair_num}"), exist_ok=True)
+        np.save(os.path.join(npz_path, f"corrcoef_pairs_multiplicity{pair_num}", f"fold{fold}_ensamble{ensamble}"), corrcoef_pairs_multiplicity)
+
+    txt_info += f"topDSlabels:{topDS_labels}\n"
+    txt_info += f"eventslabels:{event_labels}\n"
+    txt_info += f"topDS_jets_labels:{topDS_jets_labels}\n"
+    txt_info += f"topDS_pairs_labels:{topDS_pairs_labels}\n"
+    txt_info += f"jet_labels_12:{jet_labels_12}\n"
+    txt_info += f"pair_1_labels:{pair_1_labels}\n"
+    label_path = os.path.join(npz_path, f"label_info_fold{fold}_ensamble{ensamble}.txt")
+    with open(label_path, "w") as file:
+        file.write(txt_info)
 
 
 def plot_shap_baseline(
         model: tf.keras.models.Model,
         train: DotDict,
-        output: law.FileSystemDirectoryTarget,
-        process_insts: tuple[od.Process],
+        processes,
         target_dict,
         feature_names,
         features_pairs,
+        latex_dict,
+        proc_labels,
         baseline_jets,
         baseline_pairs,
         model_type,
+        npz_path,
+        fold,
+        ensamble,
+        subset_idx
 ) -> None:
+    import os
+
     feature_names_jets = np.repeat([f"Jet{i} " for i in range(1, baseline_jets + 1)], len(feature_names[0]))
     feature_names_jets = np.char.add(feature_names_jets, np.tile(feature_names[0], baseline_jets)).tolist()
     feature_names_pairs = np.repeat([f"Pair{i} " for i in range(1, baseline_pairs + 1)], len(features_pairs))
@@ -680,31 +818,80 @@ def plot_shap_baseline(
     features_inputs2 = feature_names[1]
 
     if model_type == "baseline_pairs":
-        features = feature_names_jets + feature_names_pairs + features_inputs2
+        features_list = feature_names_jets + feature_names_pairs + features_inputs2
         inp = train["inputs_baseline_pairs"].numpy()
     else:
-        features = feature_names_jets + features_inputs2
+        features_list = feature_names_jets + features_inputs2
         inp = train["inputs_baseline"].numpy()
 
     # make sure class names are sorted correctly in correspondence to their target index
     classes = sorted(target_dict.items(), key=lambda x: x[1])
     class_sorted = np.array(classes)[:, 0]
-    class_list = ['empty' for i in range(len(process_insts))]
-    for proc in process_insts:
-        idx = np.where(class_sorted == proc.name)
-        class_list[idx[0][0]] = proc.label
+    class_list = ['empty' for i in range(len(processes))]
+    for proc in processes:
+        idx = np.where(class_sorted == proc)
+        class_list[idx[0][0]] = proc_labels[proc]
 
     # calculate shap values
-    subset_idx = 150
     explainer = shap.KernelExplainer(model, inp[:subset_idx])
     shap_values = explainer.shap_values(inp[-subset_idx:])
+    shap_values = np.array(shap_values)
+
+    os.makedirs(os.path.join(npz_path, "shap"), exist_ok=True)
+    np.save(os.path.join(npz_path, "shap", f"fold{fold}_ensamble{ensamble}"), shap_values)
+
+    # calculate the proper ranking from the shap values
+    ranking = np.sum(np.sum(abs(shap_values), axis=1), axis=0)
+
+    # get the indices and sort them in descending order
+    idx = np.argsort(ranking)[::-1]
+    shap_ranking = features_list[idx]
+    txt_info = f"features_list:{features_list}\n"
+
+    label_path = os.path.join(npz_path, f"label_info_fold{fold}_ensamble{ensamble}.txt")
+    with open(label_path, "w") as file:
+        file.write(txt_info)
 
     # Feature Ranking
-    fig1 = plt.figure()
-    shap.summary_plot(shap_values, inp[:subset_idx], plot_type="bar",
-        feature_names=features, class_names=class_list, show=False, max_display=25)
-    plt.title('Feature Importance Ranking')
-    output.child("Feature_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
+    # fig1 = plt.figure()
+    # shap.summary_plot(shap_values, inp[:subset_idx], plot_type="bar",
+    #     feature_names=features, class_names=class_list, show=False, max_display=25)
+    # plt.title('Feature Importance Ranking')
+    # output.child("Feature_Ranking.pdf", type="f").dump(fig1, formatter="mpl")
+
+
+def plot_shap_model(
+        model: tf.keras.models.Model,
+        train: DotDict,
+        processes,
+        target_dict,
+        feature_names,
+        features_pairs,
+        latex_dict,
+        proc_labels,
+        baseline_jets,
+        baseline_pairs,
+        model_type,
+        npz_path,
+        fold,
+        ensamble,
+        subset_idx
+) -> None:
+
+    if model_type == "DeepSets":
+        plot_shap_deep_sets(model, train, processes, target_dict, feature_names, latex_dict, proc_labels, npz_path, fold, ensamble, subset_idx)
+
+    if model_type == "DeepSetsPP":
+        plot_shap_deep_sets_pp(model, train, processes, target_dict, feature_names, features_pairs, latex_dict, proc_labels, npz_path, fold, ensamble, subset_idx)
+
+    if model_type == "DeepSetsPS":
+        plot_shap_deep_sets_ps(model, train, processes, target_dict, feature_names, features_pairs, latex_dict, proc_labels, npz_path, fold, ensamble, subset_idx)
+
+    if model_type == "baseline":
+        plot_shap_deep_sets(model, train, processes, target_dict, feature_names, latex_dict, proc_labels, npz_path, fold, ensamble, subset_idx)
+
+    if model_type == "baseline_pairs":
+        plot_shap_baseline(model, train, processes, target_dict, feature_names, features_pairs, latex_dict, proc_labels, baseline_jets, baseline_pairs, model_type, npz_path, fold, ensamble, subset_idx)
 
 
 def plot_feature_ranking_deep_sets(
