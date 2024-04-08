@@ -32,7 +32,7 @@ def plot_confusion(inputs, labels, save_path, input_set):
     )
 
     # Create a plot of the confusion matrix
-    fig, ax = plt.subplots(figsize=(15, 10))
+    fig, ax = plt.subplots(figsize=(12, 10))
     matrix_display = ConfusionMatrixDisplay(confusion, display_labels=labels)
     matrix_display.plot(ax=ax)
     matrix_display.im_.set_clim(0, 1)
@@ -127,7 +127,7 @@ def plot_roc_ovr(inputs, labels, save_path, input_set, std):
     # legend
     std = np.round(std, decimals=4)
     ax.legend(
-        [f"Signal: {labels[i]} (AUC: {auc_score:.4f} ± {std[i]})" for i, auc_score in enumerate(auc_scores)],
+        [f"{labels[i]} (AUC: {auc_score:.4f} ± {std[i]})" for i, auc_score in enumerate(auc_scores)],
         loc="best",
     )
     mplhep.cms.label(ax=ax, llabel="Private work", data=False, loc=2)
@@ -198,6 +198,7 @@ def plot_output_nodes(inputs, processes, labels, save_path, inputs_set):
     labels = ["$HH_{" + label.split("HH_{")[1].split("}")[0] + "}$" if "HH" in label else label for label in labels]
     for i, proc in enumerate(processes):
         fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(6.8, 5.5))
 
         var_title = f"Output node {labels[i]}"
 
