@@ -22,7 +22,7 @@ from columnflow.columnar_util import EMPTY_FLOAT
 from hbt.ml.plotting import (
     plot_loss, plot_accuracy, plot_confusion, plot_roc_ovr, plot_output_nodes, plot_significance,
     write_info_file, plot_shap_baseline, plot_feature_ranking_deep_sets, plot_shap_deep_sets,
-    check_distribution, plot_shap_deep_sets_pp, plot_shap_deep_sets_ps, PCA,
+    check_distribution, plot_shap_deep_sets_pp, plot_shap_deep_sets_ps, PCA, plot_shap_model
 )
 
 np = maybe_import("numpy")
@@ -396,6 +396,7 @@ class SimpleDNN(MLModel):
             produced.add(f"{self.cls_name}.pred_target_{proc}__{self.model_name}")
             produced.add(f"{self.cls_name}.target_label_{proc}__{self.model_name}")
             produced.add(f"{self.cls_name}.events_weights_{proc}__{self.model_name}")
+            produced.add(f"{self.cls_name}.events_n_jets_{proc}__{self.model_name}")
             produced.add(f"mlscore.{proc}")
             for i in range(self.folds):
                 produced.add(f"{self.cls_name}.pred_fold_{i}_{proc}__{self.model_name}")
@@ -958,8 +959,17 @@ class SimpleDNN(MLModel):
         events: ak.Array,
         models: list(Any),
         fold_indices: ak.Array,
+        fixed_fold_index: int=-1,
         events_used_in_training: bool = True,
     ) -> None:
+
+        npz_path = f"/afs/desy.de/user/s/schaefes/Plots/models_shap_corrcoef/{self.model_name}/{task.dataset}"
+
+        subset_idx = {'graviton_hh_ggf_bbtautau_m400': 250, 'graviton_hh_vbf_bbtautau_m400': 250, 'tt': 250, 'dy': 250}
+
+        if not os.path.exists(npz_path):
+            os.makedirs(npz_path)
+
         # output = task.target(f"mlmodel_f{task.branch}of{self.folds}_{self.model_name}", dir=True)
         # output_all_folds = task.target(f"mlmodel_all_folds_{self.model_name}", dir=True)
         logger.info(f"Evaluation of dataset {task.dataset}")
@@ -990,7 +1000,7 @@ class SimpleDNN(MLModel):
         events1 = reshape_raw_inputs1(events1, self.n_features, self.input_features[0], projection_phi)
         events2 = reshape_raw_inputs2(events2)
         events_pairs = reshape_raw_inputs1(events_pairs, len(self.pair_vectors), self.pair_vectors, projection_phi)
-        pairs_inp, pairs_sorted, _ = create_pairs(events_pairs, self.pairs_dict_pad, self.pair_vectors, self.masking_val, 10, self.pairs_padding)
+        pairs_inp, pairs_sorted, features_pairs = create_pairs(events_pairs, self.pairs_dict_pad, self.pair_vectors, self.masking_val, 10, self.pairs_padding)
 
         # add extra colums to the deep sets input to fir the required input shape of the model
         # padding of extra columns must use the EMPTY_FLOAT, will be replaced with masking value
@@ -1012,6 +1022,9 @@ class SimpleDNN(MLModel):
                 'pairs_inp_sorted': pairs_sorted,
                 'target': target,
                 }
+        target_dict = {}
+        for i, proc in enumerate(self.processes):
+            target_dict[proc] = i
 
         test, _ = reshape_norm_inputs(test, self.norm_features, self.input_features, self.n_output_nodes, self.baseline_jets, self.baseline_pairs, self.masking_val, self.baseline_padding)
         # inputs to feed to the model
@@ -1028,11 +1041,33 @@ class SimpleDNN(MLModel):
 
         # do prediction for all models and all inputs
         predictions = []
-        for ensamble in models:
+        shap_switch = True
+        for f, ensamble in enumerate(models):
             ensamble_preds = np.zeros((n_events, len(self.random_seeds), len(self.processes)))
             for i, model in enumerate(ensamble):
                 pred = model.predict(inputs)
                 pred = ak.from_numpy(pred)
+                if shap_switch:
+                    test["shap_pred"] = pred
+                    plot_shap_model(
+                        model,
+                        test,
+                        self.processes,
+                        target_dict,
+                        self.input_features,
+                        features_pairs,
+                        self.latex_dict,
+                        self.proc_label_dict,
+                        self.baseline_jets,
+                        self.baseline_pairs,
+                        self.model_type,
+                        npz_path,
+                        f,
+                        i,
+                        subset_idx[proc_name],
+                    )
+                    print('DONE')
+                    shap_switch = False
                 if len(pred[0]) != len(self.processes):
                     raise Exception("Number of output nodes should be equal to number of processes")
                 ensamble_preds[:, i, :] = pred
@@ -1054,7 +1089,8 @@ class SimpleDNN(MLModel):
         weights = np.full(len(outputs), 0)
         target_val = np.full(len(outputs), target_idx)
         events = set_ak_column(events, f"{self.cls_name}.ml_truth_label_{proc_name}__{self.model_name}", target_val)
-        for i in range(self.folds):
+
+        def evaluate_single_index(i):
             logger.info(f"Evaluation fold {i}")
             # output = task.target(f"mlmodel_f{task.branch}of{self.folds}_{self.model_name}", dir=True)
             # output = task.target(f"mlmodel_f{i}of{self.folds}_{self.model_name}", dir=True)
@@ -1078,6 +1114,12 @@ class SimpleDNN(MLModel):
             # events = set_ak_column(events, f"{self.cls_name}.DeepSetsInpPt_{proc_name}_fold{i}__{self.model_name}", ak.Array(padded_fold_inp_pt))
             # padded_fold_inp_eta = np.reshape(padded_fold_inp[:, :, 3], (padded_fold_inp.shape[0], -1))[:, :9]
             # events = set_ak_column(events, f"{self.cls_name}.DeepSetsInpEta_{proc_name}_fold{i}__{self.model_name}", ak.Array(padded_fold_inp_eta))
+            return events, outputs, weights
+        if fixed_fold_index == -1:
+            for i in range(self.folds):
+                events, outputs, weights = evaluate_single_index(i)
+        else:
+            events, outputs, weights = evaluate_single_index(fixed_fold_index)
         print('Dataset:', task.dataset, 'N:', len(idx))
         test['prediction'] = np.squeeze(outputs)
 
@@ -1090,5 +1132,8 @@ class SimpleDNN(MLModel):
         events = set_ak_column(events, f"{self.cls_name}.pred_target_{proc_name}__{self.model_name}", extend(pred_target, mask))
         events = set_ak_column(events, f"{self.cls_name}.target_label_{proc_name}__{self.model_name}", extend(np.full(target.shape[0], target_idx), mask))
         events = set_ak_column(events, f"{self.cls_name}.events_weights_{proc_name}__{self.model_name}", extend(weights, mask))
+        events = set_ak_column(events, f"{self.cls_name}.events_n_jets_{proc_name}__{self.model_name}", extend(events_n_jets, mask))
 
         return events
+
+# law run cf.MLEvaluationWrapper --version limits_xsecs --cf.MLEvaluation-ml-model 4classes_DeepSets_setup1 --config run2_2017_nano_uhh_v11_limited --workers 4 --datasets graviton_hh_ggf_bbtautau_m400_madgraph,tt_sl_powheg,tt_dl_powheg --cf.MLEvaluation-workflow htcondor
