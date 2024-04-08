@@ -10,20 +10,7 @@ from plotting_funcs import (plot_confusion, plot_roc_ovr, plot_output_nodes,
 import os
 import awkward as ak
 
-
-# t = MLEvaluationWrapper(
-#     version="BtagsCustomVBFMaskJets2",
-#     ml_model="test",
-#     datasets=("graviton_hh_vbf_bbtautau_m400_madgraph",
-#              "graviton_hh_ggf_bbtautau_m400_madgraph",
-#              "hh_ggf_bbtautau_madgraph"),
-#     calibrators=("skip_jecunc",),
-#     print_status=(3,),
-# )
-
-# t.law_run()
-
-model_parse = "4classes_DeepSets_no_neg_weights"
+model_parse = "4classes_DeepSets_setup1"
 
 processes_dict = {"graviton_hh_vbf_bbtautau_m400": "graviton_hh_ggf_bbtautau_m400_madgraph",
             "graviton_hh_ggf_bbtautau_m400": "graviton_hh_vbf_bbtautau_m400_madgraph",
@@ -37,8 +24,8 @@ processes_dict = {"graviton_hh_vbf_bbtautau_m400": "graviton_hh_ggf_bbtautau_m40
 
 processes = ["graviton_hh_vbf_bbtautau_m400", "graviton_hh_ggf_bbtautau_m400", "tt", "dy"]
 
-label_dict = {"graviton_hh_vbf_bbtautau_m400": 'Graviton $\\rightarrow HH_{vbf,m400}$ $\\rightarrow bb\\tau\\tau$',
-              "graviton_hh_ggf_bbtautau_m400": 'Graviton $\\rightarrow HH_{ggf,m400}$ $\\rightarrow bb\\tau\\tau$',
+label_dict = {"graviton_hh_vbf_bbtautau_m400": '$HH_{vbf,m400}$ $\\rightarrow bb\\tau\\tau$',
+              "graviton_hh_ggf_bbtautau_m400": '$HH_{ggf,m400}$ $\\rightarrow bb\\tau\\tau$',
               "tt": '$t\\bar{t}$ + Jets',
               "tt_sl": '$t\\bar{t}$ + SL, Jets',
               "tt_dl": '$t\\bar{t}$ + DL, Jets',
