@@ -2221,7 +2221,7 @@ def add_variables(config: od.Config) -> None:
         name="CustomVBFMaskJets2_pt",
         expression="CustomVBFMaskJets2.pt",
         null_value=EMPTY_FLOAT,
-        binning=(32, -10000.0, 700.0),
+        binning=(32, 0.0, 700.0),
         unit="GeV",
         x_title=r"Jet p$_{T}$",
     )
