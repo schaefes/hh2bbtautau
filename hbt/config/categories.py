@@ -26,7 +26,7 @@ def add_categories(config: od.Config) -> None:
         name="incl",
         id=1,
         selection="cat_incl",
-        label="inclusive",
+        label="selection\napplied",
         aux={
             "root_cats": {"incl": "incl"},
         },
@@ -231,13 +231,16 @@ def add_categories_ml(config, ml_model_inst):
     # add ml categories directly to the config
     ml_categories = []
     for i, proc in enumerate(ml_model_inst.processes):
+        l = f"{config.get_process(proc).label}"
+        if '$\\rightarrow' in l:
+            l = '$' + l.split('$\\rightarrow')[1]
         ml_categories.append(config.add_category(
             # NOTE: name and ID is unique as long as we don't use
             #       multiple ml_models simutaneously
             name=f"ml_{proc}",
             id=(i + 1) * 10000,
             selection=f"catid_ml_{proc}",
-            label=f"{config.get_process(proc).label} (ML)",
+            label=l,
         ))
 
     category_blocks = OrderedDict({

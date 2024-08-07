@@ -77,4 +77,4 @@ def flat_s_edges_2(histograms, n_bins, n_bg_req):
     if 0 in np.diff(new_edges):
         raise Exception("Two neighboring bin edges of flat s are equal.")
 
-    return new_edges, n_mini_bins, proc
+    return new_edges, n_mini_bins

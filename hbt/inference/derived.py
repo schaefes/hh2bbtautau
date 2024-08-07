@@ -13,7 +13,7 @@ from hbt.inference.base import HBTInferenceModelBase
 #
 
 # used to set default requirements for cf.CreateDatacards based on the config
-ml_model_name = "4classes_DeepSets_no_neg_weights"
+ml_model_name = "4classes_DeepSets_setup2"
 
 # default_producers = [f"ml_{ml_model_name}", "event_weights"]
 
@@ -76,6 +76,60 @@ default_cls_dict = {
     "mc_stats": True,
     "skip_data": True,
 }
+
+default = HBTInferenceModelBase.derive(
+    f"rates_only_{default_cls_dict['ml_model_name']}", cls_dict=default_cls_dict
+)
+
+ml_model_name = "4classes_baseline_setup2"
+default_cls_dict.update({
+    "ml_model_name": ml_model_name
+})
+
+default = HBTInferenceModelBase.derive(
+    f"rates_only_{default_cls_dict['ml_model_name']}", cls_dict=default_cls_dict
+)
+
+ml_model_name = "4classes_DeepSetsPP_setup2"
+default_cls_dict.update({
+    "ml_model_name": ml_model_name
+})
+
+default = HBTInferenceModelBase.derive(
+    f"rates_only_{default_cls_dict['ml_model_name']}", cls_dict=default_cls_dict
+)
+
+ml_model_name = "4classes_baseline_pairs_setup2"
+default_cls_dict.update({
+    "ml_model_name": ml_model_name
+})
+
+default = HBTInferenceModelBase.derive(
+    f"rates_only_{default_cls_dict['ml_model_name']}", cls_dict=default_cls_dict
+)
+
+ml_model_name = "4classes_DeepSetsPS_sum_setup2"
+default_cls_dict.update({
+    "ml_model_name": ml_model_name
+})
+
+default = HBTInferenceModelBase.derive(
+    f"rates_only_{default_cls_dict['ml_model_name']}", cls_dict=default_cls_dict
+)
+
+ml_model_name = "4classes_DeepSetsPS_concat_setup2"
+default_cls_dict.update({
+    "ml_model_name": ml_model_name
+})
+
+default = HBTInferenceModelBase.derive(
+    f"rates_only_{default_cls_dict['ml_model_name']}", cls_dict=default_cls_dict
+)
+
+ml_model_name = "4classes_DeepSetsPS_two_inp_setup2"
+default_cls_dict.update({
+    "ml_model_name": ml_model_name
+})
 
 default = HBTInferenceModelBase.derive(
     f"rates_only_{default_cls_dict['ml_model_name']}", cls_dict=default_cls_dict

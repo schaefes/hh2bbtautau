@@ -279,6 +279,7 @@ def VBFsteps_analysis(self: Producer, events: ak.Array, **kwargs) -> ak.Array:
     events = self[attach_coffea_behavior](events, collections={"genVBFparton": {"type_name": "GenParticle", "skip_fields": "*Idx*G"}} , **kwargs)
 
     auto_matched_filled = ak.fill_none(events.AutoGenMatchedVBFJets.pt, 0)
+    from IPython import embed; embed()
 
     padding_val_ak4 = max(ak.count(ak.fill_none(events.VBFak4_step.pt, 0), axis=1))
     padded_ak4 = ak.fill_none(ak.pad_none(events.VBFak4_step.pt, padding_val_ak4), -1)

@@ -22,7 +22,7 @@ from columnflow.columnar_util import EMPTY_FLOAT
 from hbt.ml.plotting import (
     plot_loss, plot_accuracy, plot_confusion, plot_roc_ovr, plot_output_nodes, plot_significance,
     write_info_file, plot_shap_baseline, plot_feature_ranking_deep_sets, plot_shap_deep_sets,
-    check_distribution, plot_shap_deep_sets_pp, plot_shap_deep_sets_ps, PCA, plot_shap_model
+    check_distribution, plot_shap_deep_sets_pp, plot_shap_deep_sets_ps, PCA,
 )
 
 np = maybe_import("numpy")
@@ -375,7 +375,7 @@ class SimpleDNN(MLModel):
         return all_reqs
 
     def sandbox(self, task: law.Task) -> str:
-        return dev_sandbox("bash::$HBT_BASE/sandboxes/venv_ml_tf.sh")
+        return dev_sandbox("bash::$HBT_BASE/sandboxes/venv_ml_tf_dev.sh")
 
     def datasets(self, config_inst: od.Config) -> set[od.Dataset]:
         return {config_inst.get_dataset(dataset_name) for dataset_name in self.dataset_names}
@@ -396,7 +396,6 @@ class SimpleDNN(MLModel):
             produced.add(f"{self.cls_name}.pred_target_{proc}__{self.model_name}")
             produced.add(f"{self.cls_name}.target_label_{proc}__{self.model_name}")
             produced.add(f"{self.cls_name}.events_weights_{proc}__{self.model_name}")
-            produced.add(f"{self.cls_name}.events_n_jets_{proc}__{self.model_name}")
             produced.add(f"mlscore.{proc}")
             for i in range(self.folds):
                 produced.add(f"{self.cls_name}.pred_fold_{i}_{proc}__{self.model_name}")
@@ -409,22 +408,15 @@ class SimpleDNN(MLModel):
         return produced
 
     def output(self, task: law.Task) -> law.FileSystemDirectoryTarget:
-        ops = []
-        for seed in self.random_seeds:
-            ops.append(task.target(f"mlmodel_f{task.branch}of{self.folds}_{self.model_name}_{seed}", dir=True))
-        return ops
+        return task.target(f"mlmodel_f{task.branch}of{self.folds}_{self.model_name}_1", dir=True), task.target(f"mlmodel_f{task.branch}of{self.folds}_{self.model_name}_2", dir=True)
 
     def open_model(self, target: law.LocalDirectoryTarget) -> tf.keras.models.Model:
         # return target.load(formatter="keras_model")
 
         # with open(f"{target.path}/model_history.pkl", "rb") as f:
         #     history = pickle.load(f)
-        models = []
-        for i, t in enumerate(target):
-            print(f"opening model {i}/{len(target)}")
-            model = tf.keras.models.load_model(t.path)
-            models.append(model)
-        return models
+        model = tf.keras.models.load_model(target.path)
+        return model, None
 
     def training_configs(self, requested_configs: Sequence[str]) -> list[str]:
         # default config
@@ -664,29 +656,24 @@ class SimpleDNN(MLModel):
         inputs_size = sum([arr.size * arr.itemsize for arr in DNN_inputs.values()])
         logger.info(f"inputs size is {inputs_size / 1024**3} GB")
 
-        returns = []
+        np.random.seed(1337)
+        tf.random.set_seed(1337)
+        shuffle_indices = np.array(range(len(DNN_inputs["weights"])))
+        np.random.shuffle(shuffle_indices)
+        print('SHUFFLE:', shuffle_indices)
 
-        for i, seed in enumerate(self.random_seeds):
-            np.random.seed(seed)
-            tf.random.set_seed(seed)
-            keras.utils.set_random_seed(seed)
-            shuffle_indices = np.array(range(len(DNN_inputs["weights"])))
-            np.random.shuffle(shuffle_indices)
-            print('SHUFFLE:', shuffle_indices)
+        validation_fraction = 0.25
+        N_validation_events = int(validation_fraction * len(DNN_inputs["weights"]))
+        train, validation = {}, {}
+        for k in DNN_inputs.keys():
+            DNN_inputs[k] = DNN_inputs[k][shuffle_indices]
 
-            validation_fraction = 0.25
-            N_validation_events = int(validation_fraction * len(DNN_inputs["weights"]))
-            train, validation = {}, {}
-            for k in DNN_inputs.keys():
-                DNN_inputs[k] = DNN_inputs[k][shuffle_indices]
-
-                validation[k] = DNN_inputs[k][:N_validation_events]
-                train[k] = DNN_inputs[k][N_validation_events:]
-            # reshape and normalize inputs
-            train, train_norm = reshape_norm_inputs(train, self.norm_features, self.input_features, self.n_output_nodes, self.baseline_jets, self.baseline_pairs, self.masking_val, self.baseline_padding)
-            train['seed'] = seed
-            validation, _ = reshape_norm_inputs(validation, self.norm_features, self.input_features, self.n_output_nodes, self.baseline_jets, self.baseline_pairs, self.masking_val, self.baseline_padding)
-            returns.append([train, train_norm, validation])
+            validation[k] = DNN_inputs[k][:N_validation_events]
+            train[k] = DNN_inputs[k][N_validation_events:]
+        # reshape and normalize inputs
+        train, train_norm = reshape_norm_inputs(train, self.norm_features, self.input_features, self.n_output_nodes, self.baseline_jets, self.baseline_pairs, self.masking_val, self.baseline_padding)
+        validation, _ = reshape_norm_inputs(validation, self.norm_features, self.input_features, self.n_output_nodes, self.baseline_jets, self.baseline_pairs, self.masking_val, self.baseline_padding)
+        returns.append([train, train_norm, validation])
 
         return returns
 
@@ -789,7 +776,7 @@ class SimpleDNN(MLModel):
             # Invalid device or cannot modify virtual devices once initialized.
             pass
 
-        train_sets = self.prepare_inputs(task, input)
+        set1, set2 = self.prepare_inputs(task, input)
 
         gc.collect()
         logger.info("garbage collected")
@@ -799,13 +786,7 @@ class SimpleDNN(MLModel):
         #
         # i is used to adress separate the output paths for each model in the ensamble
         i = 0
-        for train_set in train_sets:
-            train, train_norm, validation = train_set
-            seed = train['seed']
-            np.random.seed(seed)
-            tf.random.set_seed(seed)
-            keras.utils.set_random_seed(seed)
-            del train['seed']
+        for (train, train_norm, validation) in (set1, set2):
             # configureations for Deep Sets and FF Network
             dict_vals = tf.stack(list(self.pairs_dict_tf.values()))
             deepset_config_jets = {'nodes': self.nodes_deepSets, 'activations': self.activation_func_deepSets,
@@ -960,18 +941,8 @@ class SimpleDNN(MLModel):
         events: ak.Array,
         models: list(Any),
         fold_indices: ak.Array,
-        fixed_fold_index: int=-1,
         events_used_in_training: bool = True,
-        create_additional_metrics: bool = False,
     ) -> None:
-
-        npz_path = f"/nfs/dust/cms/user/schaefes/models_shap_corrcoef/{self.model_name}/{task.dataset}"
-        os.makedirs(npz_path, exist_ok=True)
-
-        subset_idx = {'graviton_hh_ggf_bbtautau_m400': 250, 'graviton_hh_vbf_bbtautau_m400': 250, 'tt': 250, 'dy': 250}
-
-        if not os.path.exists(npz_path):
-            os.makedirs(npz_path)
 
         # output = task.target(f"mlmodel_f{task.branch}of{self.folds}_{self.model_name}", dir=True)
         # output_all_folds = task.target(f"mlmodel_all_folds_{self.model_name}", dir=True)
@@ -979,18 +950,14 @@ class SimpleDNN(MLModel):
         proc_name = "_".join(task.dataset.split("_")[:-1])
         proc_name = "tt" if "tt" in proc_name and "tt" in self.processes else proc_name
         proc_name = "dy" if "dy" in proc_name and "dy" in self.processes else proc_name
-        # models, history = zip(*models)
+        models, history = zip(*models)
         model0 = models[0]
-        if isinstance(model0, list):
-            model0 = models[0][0]
-
         if self.model_type == "DeepSetsPS":
             max_jets = model0.signatures["serving_default"].structured_input_signature[1]['input_1_1'].shape[1]
         else:
             max_jets = model0.signatures["serving_default"].structured_input_signature[1]['input_1'].shape[1]
         # create a copy of the inputs to use for evaluation
         inputs = ak.copy(events)
-        n_events = len(events)
 
         # generate mask based on the jet num requirements
         njets_field = [i for i in self.input_features[1] if 'njets' in i][0]
@@ -1006,7 +973,7 @@ class SimpleDNN(MLModel):
         events1 = reshape_raw_inputs1(events1, self.n_features, self.input_features[0], projection_phi)
         events2 = reshape_raw_inputs2(events2)
         events_pairs = reshape_raw_inputs1(events_pairs, len(self.pair_vectors), self.pair_vectors, projection_phi)
-        pairs_inp, pairs_sorted, features_pairs = create_pairs(events_pairs, self.pairs_dict_pad, self.pair_vectors, self.masking_val, 10, self.pairs_padding)
+        pairs_inp, pairs_sorted, _ = create_pairs(events_pairs, self.pairs_dict_pad, self.pair_vectors, self.masking_val, 10, self.pairs_padding)
 
         # add extra colums to the deep sets input to fir the required input shape of the model
         # padding of extra columns must use the EMPTY_FLOAT, will be replaced with masking value
@@ -1028,9 +995,6 @@ class SimpleDNN(MLModel):
                 'pairs_inp_sorted': pairs_sorted,
                 'target': target,
                 }
-        target_dict = {}
-        for i, proc in enumerate(self.processes):
-            target_dict[proc] = i
 
         test, _ = reshape_norm_inputs(test, self.norm_features, self.input_features, self.n_output_nodes, self.baseline_jets, self.baseline_pairs, self.masking_val, self.baseline_padding)
         # inputs to feed to the model
@@ -1046,9 +1010,14 @@ class SimpleDNN(MLModel):
             inputs = [test["inputs"], test["inputs2"]]
 
         # do prediction for all models and all inputs
-        # predictions = []
-        # shap_switch = True
-        # for f, ensamble in enumerate(models):
+        predictions = []
+        from IPython import embed; embed()
+        for i, model in enumerate(models):
+            pred = model.predict(inputs)
+            pred = ak.from_numpy(pred)
+            if len(pred[0]) != len(self.processes):
+                raise Exception("Number of output nodes should be equal to number of processes")
+            predictions.append(pred)
 
         '''In pred, each model sees the complete set of data, this includes data used for training
         and validation. For each model, keep only the predictions on inputs that were not yet seen
@@ -1060,15 +1029,12 @@ class SimpleDNN(MLModel):
         entries in outputs will later be overriden with prediction by the model associated with
         a given subset.'''
         # combine all models into 1 output score, using the model that has not seen test set yet
-        # outputs = ak.where(ak.ones_like(predictions[0]), -1, -1)
-        # op = ak.where(ak.ones_like(predictions[0]), -1, -1)
-        outputs = ak.full_like(target, -1)
-        op = ak.full_like(target, -1)
+        outputs = ak.where(ak.ones_like(predictions[0]), -1, -1)
+        op = ak.where(ak.ones_like(predictions[0]), -1, -1)
         weights = np.full(len(outputs), 0)
         target_val = np.full(len(outputs), target_idx)
         events = set_ak_column(events, f"{self.cls_name}.ml_truth_label_{proc_name}__{self.model_name}", target_val)
-
-        def evaluate_single_index(i, events, outputs, weights, ensamble):
+        for i in range(self.folds):
             logger.info(f"Evaluation fold {i}")
             # output = task.target(f"mlmodel_f{task.branch}of{self.folds}_{self.model_name}", dir=True)
             # output = task.target(f"mlmodel_f{i}of{self.folds}_{self.model_name}", dir=True)
@@ -1076,47 +1042,14 @@ class SimpleDNN(MLModel):
             '''get indices of the events that belong to k subset not yet seen by the model and
             override the entries at these indices in outputs with the prediction of the model.'''
             idx = ak.to_regular(ak.concatenate([ak.singletons(fold_indices == i)] * len(self.processes), axis=1))
-            ensamble_preds = np.zeros((n_events, len(self.random_seeds), len(self.processes)))
-
-            for nensemble, model in enumerate(ensamble):
-                pred = model.predict(inputs)
-                pred = ak.from_numpy(pred)
-                # if shap_switch:
-                if create_additional_metrics:
-                    test["shap_pred"] = pred
-                    plot_shap_model(
-                        model,
-                        test,
-                        self.processes,
-                        target_dict,
-                        self.input_features,
-                        features_pairs,
-                        self.latex_dict,
-                        self.proc_label_dict,
-                        self.baseline_jets,
-                        self.baseline_pairs,
-                        self.model_type,
-                        npz_path,
-                        i,
-                        nensemble,
-                        subset_idx[proc_name],
-                        idx
-                    )
-                    # shap_switch = False
-                if len(pred[0]) != len(self.processes):
-                    raise Exception("Number of output nodes should be equal to number of processes")
-                ensamble_preds[:, nensemble, :] = pred
-            ensamble_mean = ak.mean(ensamble_preds, axis=1)
-            # predictions.append(ensamble_mean)
-            outputs = ak.where(idx, ensamble_mean, outputs)
-            fold_op = ak.where(idx, ensamble_mean, op)
+            outputs = ak.where(idx, predictions[i], outputs)
+            fold_op = ak.where(idx, predictions[i], op)
             fold_op = np.concatenate((fold_op, target), axis=1)
 
             mask_weights = (np.sum(idx, axis=1) != 0)
             weights = ak.where(mask_weights, events.normalization_weight, weights)
             w = np.array(weights).reshape(-1, 1)
-            n_jets = np.array(events_n_jets).reshape(-1, 1)
-            fold_op = np.concatenate((fold_op, w, n_jets), axis=1)
+            fold_op = np.concatenate((fold_op, w), axis=1)
             events = set_ak_column(events, f"{self.cls_name}.pred_fold_{i}_{proc_name}__{self.model_name}", extend(fold_op, mask))
             # get the inp of the Deep Sets for each test fold
             # filler = np.full_like(inputs[0], self.masking_val)
@@ -1125,25 +1058,7 @@ class SimpleDNN(MLModel):
             # events = set_ak_column(events, f"{self.cls_name}.DeepSetsInpPt_{proc_name}_fold{i}__{self.model_name}", ak.Array(padded_fold_inp_pt))
             # padded_fold_inp_eta = np.reshape(padded_fold_inp[:, :, 3], (padded_fold_inp.shape[0], -1))[:, :9]
             # events = set_ak_column(events, f"{self.cls_name}.DeepSetsInpEta_{proc_name}_fold{i}__{self.model_name}", ak.Array(padded_fold_inp_eta))
-            return events, outputs, weights
-
-        if fixed_fold_index == -1:
-            for i in range(self.folds):
-                try:
-                    ensamble = models[i]
-                except Exception as e:
-                    print(e)
-                    print("try getting one single ensemble from model list")
-                    ensamble = models[0]
-
-                events, outputs, weights = evaluate_single_index(
-                    i, events, outputs, weights, ensamble=ensamble
-                )
-        else:
-            events, outputs, weights = evaluate_single_index(
-                fixed_fold_index, events, outputs, weights, ensamble=models,
-            )
-        print('Dataset:', task.dataset, 'N:', len(events))
+        print('Dataset:', task.dataset, 'N:', len(idx))
         test['prediction'] = np.squeeze(outputs)
 
         if len(outputs[0]) != len(self.processes):
@@ -1155,8 +1070,5 @@ class SimpleDNN(MLModel):
         events = set_ak_column(events, f"{self.cls_name}.pred_target_{proc_name}__{self.model_name}", extend(pred_target, mask))
         events = set_ak_column(events, f"{self.cls_name}.target_label_{proc_name}__{self.model_name}", extend(np.full(target.shape[0], target_idx), mask))
         events = set_ak_column(events, f"{self.cls_name}.events_weights_{proc_name}__{self.model_name}", extend(weights, mask))
-        events = set_ak_column(events, f"{self.cls_name}.events_n_jets_{proc_name}__{self.model_name}", extend(events_n_jets, mask))
 
         return events
-
-# law run cf.MLEvaluationWrapper --version limits_xsecs --cf.MLEvaluation-ml-model 4classes_DeepSets_setup1 --config run2_2017_nano_uhh_v11_limited --workers 4 --datasets graviton_hh_ggf_bbtautau_m400_madgraph,tt_sl_powheg,tt_dl_powheg --cf.MLEvaluation-workflow htcondor

@@ -475,6 +475,12 @@ model_name = "_".join([model_name, model_name_desc]) if model_name_desc else mod
 cls_dict["model_name"] = model_name
 baseline_pairs_4classes_2_relu = SimpleDNN.derive(model_name, cls_dict=cls_dict)
 
+model_name_desc = "test"
+model_name = f"{len(processes)}classes_{model_type}"
+model_name = "_".join([model_name, model_name_desc]) if model_name_desc else model_name
+cls_dict["model_name"] = model_name
+baseline_pairs_4classes_test = SimpleDNN.derive(model_name, cls_dict=cls_dict)
+
 
 ###############################################################################
 # DSPP setup 1
@@ -897,3 +903,7 @@ deepsetsPS_two_inp_4classes_4_relu = SimpleDNN.derive(model_name, cls_dict=cls_d
 
 # law run cf.PlotMLResults --plot-function roc --general-settings "evaluation_type=ovr" --ml-model test --datasets graviton_hh_ggf_bbtautau_m400_madgraph,graviton_hh_vbf_bbtautau_m400_madgraph,tt_dl_powheg,tt_sl_powheg,dy_lep_pt50To100_amcatnlo,dy_lep_pt100To250_amcatnlo,dy_lep_pt250To400_amcatnlo,dy_lep_pt400To650_amcatnlo,dy_lep_pt650_amcatnlo --version PairsML
 # law run cf.MLTraining --version PairsML --ml-model test --config run2_2017_nano_uhh_v11_limited --cf.MLTraining-workflow htcondor --cf.MLTraining-htcondor-memory 20GB
+
+"""
+law run cf.MergeMLEvaluationPerFoldWrapper --version limits_xsecs --cf.MergeMLEvaluationPerFold-ml-model 4classes_DeepSetsPS_sum_setup2 --configs run2_2017_nano_uhh_v11_limited --workers 5 --datasets tt_sl_powheg,graviton_hh_ggf_bbtautau_m400_madgraph,tt_dl_powheg --cf.MLEvaluationPerFold-workflow htcondor --cf.MLEvaluationPerFold-additional-metrics --cf.MLEvaluationPerFold-max-runtime 12h
+"""

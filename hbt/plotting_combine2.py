@@ -99,8 +99,9 @@ for var in vars_dictionary.keys():
     bins, lower, upper = vars_dictionary[var]['binning']
     steps = vars_dictionary[var]['steps']
     s_steps = steps / 4
-    figsize = (7.2, 5.5)
+    figsize = (6.4, 4.8)
     fig2, ax2 = plt.subplots(figsize=figsize)
+    plt.style.use(mplhep.style.CMS)
     mplhep.cms.label(ax=ax2, llabel="Private work", data=False, loc=0, lumi=True, lumi_format="41.48", fontsize=16)
 
     for proc in processes:
@@ -127,21 +128,14 @@ for var in vars_dictionary.keys():
         ax2.bar(defaults["x"], defaults["y"], width=defaults["width"], yerr=defaults["height"] / 2, fill=False, edgecolor=c, error_kw=dict(ecolor=c, capthick=2), label=proc_labels[proc])
         max_bin = np.max(defaults["y"]) if np.max(defaults["y"]) > max_bin else max_bin
     # set ticks on the axis
-    ax2.text(0.05, 0.95, 'selection\napplied', transform=ax2.transAxes, fontsize=16, verticalalignment='top')
-    ax2.xaxis.set_major_locator(ticker.MultipleLocator(steps))
-    ax2.xaxis.set_minor_locator(AutoMinorLocator(4))
-    ax2.yaxis.set_minor_locator(AutoMinorLocator(4))
-    ax2.tick_params(axis="x", which="minor", direction="in", top=True, labeltop=False, bottom=True, labelbottom=False, labelsize=14)
-    ax2.tick_params(axis="y", which="minor", direction="in", left=True, labelleft=False, right=True, labelright=False, labelsize=14)
-    ax2.tick_params(axis="x", which="major", direction="in", top=True, labeltop=False, bottom=True, labelbottom=True, labelsize=14)
-    ax2.tick_params(axis="y", which="major", direction="in", left=True, labelleft=True, right=True, labelright=False, labelsize=14)
-    if (ax2.get_ylim()[1] - max_bin) < ax2.get_ylim()[1] / 3:
-        ax2.set_ylim(ymax=ax2.get_ylim()[1] * 1.7)
+    ax2.text(0.05, 0.95, 'selection\napplied', transform=ax2.transAxes, fontsize=14, verticalalignment='top')
+    if (ax2.get_ylim()[1] - max_bin) < ax2.get_ylim()[1] / 4:
+        ax2.set_ylim(ymax=ax2.get_ylim()[1] * 1.5)
     ax2.set_ylim(ymin=0.)
     ax2.set_xlim(xmin=lower, xmax=upper)
-    ax2.set_xlabel(vars_dictionary[var]['label'] + vars_dictionary[var]['unit'], loc='right', fontsize=16)
-    ax2.set_ylabel(r'$\Delta$N/N', loc='top', fontsize=16)
-    ax2.legend(frameon=False, fontsize=14)
+    ax2.set_xlabel(vars_dictionary[var]['label'] + vars_dictionary[var]['unit'], loc='right', fontsize=13)
+    ax2.set_ylabel(r'$\Delta$N/N', loc='top', fontsize=14)
+    ax2.legend(frameon=False)
     plt.setp(ax2.get_yticklabels()[0], visible=False)
     file_path = f"{path}/{var}.pdf"
     os.remove(file_path) if os.path.exists(file_path) else None

@@ -2608,28 +2608,28 @@ def add_variables(config: od.Config) -> None:
         name="mlscore.graviton_hh_vbf_bbtautau_m400",
         expression="mlscore.graviton_hh_vbf_bbtautau_m400",
         null_value=EMPTY_FLOAT,
-        binning=(10000, 0., 1.),
+        binning=(10, 0., 1.),
         x_title=r"ML Category HH$_{VBF, m400}$",
     )
     config.add_variable(
         name="mlscore.graviton_hh_ggf_bbtautau_m400",
         expression="mlscore.graviton_hh_ggf_bbtautau_m400",
         null_value=EMPTY_FLOAT,
-        binning=(10000, 0., 1.),
+        binning=(10, 0., 1.),
         x_title=r"ML Category HH$_{GGF, m400}$",
     )
     config.add_variable(
         name="mlscore.dy",
         expression="mlscore.dy",
         null_value=EMPTY_FLOAT,
-        binning=(10000, 0., 1.),
+        binning=(10, 0., 1.),
         x_title=r"ML Category DY",
     )
     config.add_variable(
         name="mlscore.tt",
         expression="mlscore.tt",
         null_value=EMPTY_FLOAT,
-        binning=(10000, 0., 1.),
+        binning=(10, 0., 1.),
         x_title=r"ML Category $t\bar{t}$",
     )
 
